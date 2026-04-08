@@ -3,6 +3,7 @@ package config
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestGetDatabaseDSNIncludesSchemaSearchPath(t *testing.T) {
@@ -33,5 +34,21 @@ func TestGetDatabaseDSNPreservesExistingSearchPath(t *testing.T) {
 	}
 	if strings.Contains(dsn, "search_path=public") {
 		t.Fatalf("expected DB_SCHEMA not to overwrite existing search_path, got %q", dsn)
+	}
+}
+
+func TestGetEmbeddingProviderDefaultsToLocalHash(t *testing.T) {
+	t.Setenv("EMBEDDING_PROVIDER", "")
+
+	if provider := GetEmbeddingProvider(); provider != "local-hash" {
+		t.Fatalf("expected local-hash provider, got %q", provider)
+	}
+}
+
+func TestGetEmbeddingRequestTimeoutFallsBackToDefault(t *testing.T) {
+	t.Setenv("EMBEDDING_REQUEST_TIMEOUT", "not-a-duration")
+
+	if timeout := GetEmbeddingRequestTimeout(); timeout != 15*time.Second {
+		t.Fatalf("expected 15s default timeout, got %v", timeout)
 	}
 }

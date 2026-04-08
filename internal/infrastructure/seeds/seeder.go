@@ -3,17 +3,23 @@ package seeds
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
-	localembedding "github.com/IanStuardo-Dev/backend-crud/internal/infrastructure/embedding/local"
+	productapp "github.com/IanStuardo-Dev/backend-crud/internal/application/product"
 	passwordinfra "github.com/IanStuardo-Dev/backend-crud/internal/infrastructure/security/password"
 )
 
-func Run(ctx context.Context, db *sql.DB) error {
+var ErrEmbedderUnavailable = errors.New("product embedder is not configured for seeds")
+
+func Run(ctx context.Context, db *sql.DB, embedder productapp.Embedder) error {
 	hasher := passwordinfra.NewBcryptHasher(0)
+	if embedder == nil {
+		return ErrEmbedderUnavailable
+	}
 
 	if err := ensureSeedUser(ctx, db, hasher, seedUser{
 		Email:    getenvDefault("SEED_SUPER_ADMIN_EMAIL", "superadmin@example.com"),
@@ -61,7 +67,6 @@ func Run(ctx context.Context, db *sql.DB) error {
 		return err
 	}
 
-	embedder := localembedding.NewService()
 	for _, product := range seedProducts() {
 		if err := ensureSeedProduct(ctx, db, embedder, product); err != nil {
 			return err
@@ -83,10 +88,6 @@ type seedUser struct {
 
 type passwordHasher interface {
 	Hash(password string) (string, error)
-}
-
-type textEmbedder interface {
-	EmbedText(ctx context.Context, text string) ([]float32, error)
 }
 
 type seedProduct struct {
@@ -133,7 +134,7 @@ func ensureSeedUser(ctx context.Context, db *sql.DB, hasher passwordHasher, user
 	return err
 }
 
-func ensureSeedProduct(ctx context.Context, db *sql.DB, embedder textEmbedder, product seedProduct) error {
+func ensureSeedProduct(ctx context.Context, db *sql.DB, embedder productapp.Embedder, product seedProduct) error {
 	embedding, err := embedder.EmbedText(ctx, productEmbeddingText(product))
 	if err != nil {
 		return err
@@ -296,37 +297,37 @@ func seedProducts() []seedProduct {
 			CompanyID:   1,
 			BranchID:    1,
 			SKU:         "SEED-PRD-006",
-			Name:        "Noise Cancelling Headphones",
-			Description: "Audifonos over-ear con cancelacion de ruido activa.",
-			Category:    "audio",
-			Brand:       "SoundLab",
-			PriceCents:  89990,
+			Name:        "Cafe Dolca Instantaneo 170g",
+			Description: "Cafe soluble clasico en frasco de 170 gramos para consumo diario.",
+			Category:    "beverages",
+			Brand:       "Dolca",
+			PriceCents:  6490,
 			Currency:    "CLP",
-			Stock:       9,
+			Stock:       28,
 		},
 		{
 			CompanyID:   1,
 			BranchID:    1,
 			SKU:         "SEED-PRD-007",
-			Name:        "Portable SSD 1TB",
-			Description: "Unidad SSD externa USB-C para respaldo veloz.",
-			Category:    "storage",
-			Brand:       "DataFast",
-			PriceCents:  79990,
+			Name:        "Cafe Nestle Clasico 170g",
+			Description: "Cafe instantaneo tradicional en frasco de 170 gramos.",
+			Category:    "beverages",
+			Brand:       "Nestle",
+			PriceCents:  6990,
 			Currency:    "CLP",
-			Stock:       13,
+			Stock:       24,
 		},
 		{
 			CompanyID:   1,
 			BranchID:    1,
 			SKU:         "SEED-PRD-008",
-			Name:        "Webcam Full HD",
-			Description: "Camara web 1080p para reuniones y streaming.",
-			Category:    "video",
-			Brand:       "VisionX",
-			PriceCents:  38990,
+			Name:        "Coffee Marley Instant Blend 170g",
+			Description: "Instant coffee blend de 170 gramos con sabor intenso.",
+			Category:    "beverages",
+			Brand:       "Marley",
+			PriceCents:  7490,
 			Currency:    "CLP",
-			Stock:       16,
+			Stock:       19,
 		},
 		{
 			CompanyID:   1,
