@@ -178,6 +178,23 @@ func TestTransferCreateValidatesSupervisorInBody(t *testing.T) {
 	})
 }
 
+func TestTransferCreateReturnsDetailedUnknownFieldError(t *testing.T) {
+	repo := newMemoryTransferRepository()
+	handler := transferhttp.NewHandler(transferapp.NewUseCase(repo))
+	server := router.New(nil, nil, authhttp.NewMiddleware(stubTokenVerifier{}), nil, nil, nil, handler)
+
+	body := `{"company_id":1,"origin_branch_id":1,"destination_branch_id":2,"supervisorUserId":9,"items":[{"product_id":10,"quantity":1}]}`
+	resp := performAuthenticatedRequest(t, server, http.MethodPost, "/inventory/transfers", body, "manager-token")
+	assertStatus(t, resp, http.StatusBadRequest)
+	assertProblemResponse(t, resp, map[string]any{
+		"type":   "https://httpstatuses.com/400",
+		"title":  "Invalid Request Body",
+		"status": float64(400),
+		"detail": "request body contains unknown field \"supervisorUserId\"",
+		"path":   "/inventory/transfers",
+	})
+}
+
 type stubTokenVerifier struct{}
 
 func (stubTokenVerifier) Verify(token string) (authapp.AuthenticatedUser, error) {

@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"mime"
 	"net/http"
+	"strings"
 
 	transferapp "github.com/IanStuardo-Dev/backend-crud/internal/application/transfer"
 	domaintransfer "github.com/IanStuardo-Dev/backend-crud/internal/domain/transfer"
@@ -92,7 +94,25 @@ func decodeJSONBody(r *http.Request, dst any) error {
 	decoder.DisallowUnknownFields()
 
 	if err := decoder.Decode(dst); err != nil {
-		return errors.New("request body must be valid JSON")
+		var syntaxErr *json.SyntaxError
+		var typeErr *json.UnmarshalTypeError
+
+		switch {
+		case errors.As(err, &syntaxErr):
+			return fmt.Errorf("request body contains malformed JSON at position %d", syntaxErr.Offset)
+		case errors.Is(err, io.EOF):
+			return errors.New("request body must not be empty")
+		case errors.As(err, &typeErr):
+			if typeErr.Field != "" {
+				return fmt.Errorf("field %q must be a valid %s", typeErr.Field, typeErr.Type.String())
+			}
+			return errors.New("request body contains an invalid value type")
+		case strings.HasPrefix(err.Error(), "json: unknown field "):
+			field := strings.TrimPrefix(err.Error(), "json: unknown field ")
+			return fmt.Errorf("request body contains unknown field %s", field)
+		default:
+			return errors.New("request body must be valid JSON")
+		}
 	}
 	if decoder.More() {
 		return errors.New("request body must contain a single JSON object")
