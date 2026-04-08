@@ -13,16 +13,16 @@ Este backend cubre necesidades habituales en sistemas comerciales y de inventari
 - inventario por sucursal
 - ventas que descuentan stock y registran que usuario ejecuto la accion
 - transferencias internas entre sucursales
-- busqueda de productos similares mediante embeddings locales y `pgvector`
+- busqueda de productos similares mediante embeddings semanticos locales y `pgvector`
 
 La base prioriza consistencia, permisos y trazabilidad desde el inicio, para que las decisiones de negocio no queden diluidas entre handlers, queries y validaciones dispersas.
 
 ## Principios del proyecto
 
-Documento complementario:
-
-- [Product Intelligence Roadmap](docs/product-intelligence-roadmap.md)
-- [Local Semantic Embedding Design](docs/local-semantic-embedding-design.md)
+> [!NOTE]
+> Documentos complementarios:
+> - [Product Intelligence Roadmap](docs/product-intelligence-roadmap.md)
+> - [Local Semantic Embedding Design](docs/local-semantic-embedding-design.md)
 
 ### Arquitectura clara
 
@@ -224,6 +224,9 @@ Esto levanta:
 - API en Go
 - servicio local de embeddings semanticos
 
+> [!IMPORTANT]
+> El `embedding-service` forma parte de la pila local. Si quieres validar vecinos cercanos con el proveedor semantico real, no basta con levantar solo `db` y `api`.
+
 Configuracion principal:
 
 - `POSTGRES_DB=go-crud`
@@ -279,6 +282,18 @@ make migrate-up
 go run ./cmd/seed
 ```
 
+Si quieres que los productos seed usen el proveedor semantico local, ejecuta el seeder con estas variables:
+
+```sh
+EMBEDDING_PROVIDER=local-semantic-service \
+EMBEDDING_SERVICE_URL=http://localhost:8000 \
+EMBEDDING_REQUEST_TIMEOUT=45s \
+go run ./cmd/seed
+```
+
+> [!IMPORTANT]
+> Si corres los seeds sin esas variables, el catalogo se puede poblar con el proveedor local por hash en vez del proveedor semantico. Para pruebas reales de vecinos cercanos, conviene regenerarlos con `local-semantic-service`.
+
 ### 5. API
 
 ```sh
@@ -302,13 +317,24 @@ Usuarios iniciales:
 - `inventory@default-company.local` / `Password123`
 - `sales@default-company.local` / `Password123`
 
-Tambien se cargan 10 productos base en la compania `1`, sucursal `1`, con embeddings ya generados. Entre ellos se incluyen productos deliberadamente cercanos para validar la busqueda por similitud:
+Tambien se cargan productos base en la compania `1`, sucursal `1`, con embeddings ya generados.
+
+Set de validacion semantica:
 
 - `Wireless Mouse`
 - `Wireless Ergonomic Mouse`
 - `Cafe Dolca Instantaneo 170g`
 - `Cafe Nestle Clasico 170g`
 - `Coffee Marley Instant Blend 170g`
+
+Catalogo adicional para pruebas masivas:
+
+- `100` abarrotes distintos (`SEED-GRC-001` a `SEED-GRC-100`)
+- categorias como pantry, breakfast, snacks, baking, canned-goods, desserts y hot-beverages
+- familias cercanas como arroz, fideos, legumbres, cafe, te, galletas, aceites y conservas
+
+> [!TIP]
+> Este set de abarrotes sirve para probar el comportamiento del ranking semantico con un catalogo mas realista, sin depender de solo dos o tres productos artificialmente parecidos.
 
 ## Ejemplos rapidos
 
@@ -348,9 +374,21 @@ curl -X POST http://localhost:8080/sales \
 ```sh
 TOKEN='pega_aqui_el_jwt'
 
-curl -X GET 'http://localhost:8080/products/4/neighbors?limit=5&min_similarity=0.20' \
+curl -X GET 'http://localhost:8080/products/ID_DEL_PRODUCTO/neighbors?limit=5&min_similarity=0.20' \
   -H "Authorization: Bearer ${TOKEN}"
 ```
+
+La coleccion Postman incluye una carpeta `Semantic Search` que:
+
+- obtiene el catalogo
+- captura automaticamente los IDs de seeds relevantes
+- prueba vecinos cercanos para cafe y abarrotes sin depender de IDs fijos
+
+> [!TIP]
+> En Postman, el orden recomendado es:
+> 1. login
+> 2. `Refresh Semantic Seed IDs`
+> 3. `Get Coffee Seed Neighbors` o `Get Grocery Seed Neighbors`
 
 ## Testing
 
