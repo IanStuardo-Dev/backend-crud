@@ -31,6 +31,18 @@
       "value": "1"
     },
     {
+      "key": "coffeeProductId",
+      "value": ""
+    },
+    {
+      "key": "coffeeSimilarProductId",
+      "value": ""
+    },
+    {
+      "key": "groceryProductId",
+      "value": ""
+    },
+    {
       "key": "saleId",
       "value": "1"
     },
@@ -451,6 +463,77 @@
               }
             ],
             "url": "{{baseUrl}}/products/{{productId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Semantic Search",
+      "item": [
+        {
+          "name": "Refresh Semantic Seed IDs",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "var items = json.data || [];",
+                  "function findByName(name) {",
+                  "  return items.find(function (item) { return item.name === name; });",
+                  "}",
+                  "var cafeDolca = findByName('Cafe Dolca Instantaneo 170g');",
+                  "var cafeNestle = findByName('Cafe Nestle Clasico 170g');",
+                  "var arroz = findByName('Arroz Grano Largo Gallo 1kg');",
+                  "pm.test('coffee seed exists', function () { pm.expect(cafeDolca).to.exist; });",
+                  "pm.test('coffee similar seed exists', function () { pm.expect(cafeNestle).to.exist; });",
+                  "pm.test('grocery seed exists', function () { pm.expect(arroz).to.exist; });",
+                  "pm.collectionVariables.set('coffeeProductId', cafeDolca.id);",
+                  "pm.collectionVariables.set('coffeeSimilarProductId', cafeNestle.id);",
+                  "pm.collectionVariables.set('groceryProductId', arroz.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{salesUserToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/products"
+          }
+        },
+        {
+          "name": "Get Coffee Seed Neighbors",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{salesUserToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/products/{{coffeeProductId}}/neighbors?limit=5&min_similarity=0.20"
+          }
+        },
+        {
+          "name": "Get Grocery Seed Neighbors",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{salesUserToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/products/{{groceryProductId}}/neighbors?limit=5&min_similarity=0.20"
           }
         }
       ]
