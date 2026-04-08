@@ -332,6 +332,24 @@ make test-pretty
 PATH="$(pwd)/bin:$PATH" make test-pretty
 ```
 
+## Flujo de ramas
+
+El repositorio sigue un flujo simple de promocion entre ramas:
+
+- `dev`
+  - integracion de trabajo en curso mediante Pull Request
+- `qa`
+  - validacion de cambios que provienen solo desde `dev`
+- `main`
+  - rama principal, alimentada solo desde `qa`
+
+Las ramas `dev`, `qa` y `main` estan pensadas para operar con protecciones de GitHub:
+
+- merge solo por Pull Request
+- checks requeridos antes de mergear
+- bloqueo de force-push
+- bloqueo de borrado de ramas
+
 ## Proyeccion
 
 La base actual permite extender el sistema de forma ordenada en varias direcciones:
