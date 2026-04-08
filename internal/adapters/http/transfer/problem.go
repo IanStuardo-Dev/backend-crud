@@ -36,8 +36,12 @@ func writeApplicationError(w http.ResponseWriter, r *http.Request, err error) {
 		}})
 	case errors.Is(err, transferapp.ErrNotFound):
 		writeProblem(w, r, http.StatusNotFound, "Resource Not Found", "transfer not found", nil)
+	case errors.Is(err, transferapp.ErrForbiddenAction):
+		writeProblem(w, r, http.StatusForbidden, "Forbidden", err.Error(), nil)
 	case errors.Is(err, transferapp.ErrInvalidReference):
 		writeProblem(w, r, http.StatusUnprocessableEntity, "Validation Failed", "company, branch, user, or product reference is invalid", nil)
+	case errors.Is(err, transferapp.ErrInvalidState):
+		writeProblem(w, r, http.StatusConflict, "Conflict", err.Error(), nil)
 	case errors.Is(err, transferapp.ErrInsufficientStock):
 		writeProblem(w, r, http.StatusConflict, "Conflict", "origin branch does not have enough available stock", nil)
 	default:

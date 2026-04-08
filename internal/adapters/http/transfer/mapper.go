@@ -16,6 +16,7 @@ func toCreateInput(request createTransferRequest, requestedByUserID int64) trans
 		OriginBranchID:      request.OriginBranchID,
 		DestinationBranchID: request.DestinationBranchID,
 		RequestedByUserID:   requestedByUserID,
+		SupervisorUserID:    request.SupervisorUserID,
 		Note:                request.Note,
 		Items:               items,
 	}
@@ -39,11 +40,18 @@ func toTransferResponse(output transferapp.Output) transferResponse {
 		DestinationBranchID: output.DestinationBranchID,
 		Status:              output.Status,
 		RequestedByUserID:   output.RequestedByUserID,
-		CompletedByUserID:   output.CompletedByUserID,
+		SupervisorUserID:    output.SupervisorUserID,
+		ApprovedByUserID:    output.ApprovedByUserID,
+		DispatchedByUserID:  output.DispatchedByUserID,
+		ReceivedByUserID:    output.ReceivedByUserID,
+		CancelledByUserID:   output.CancelledByUserID,
 		Note:                output.Note,
 		Items:               items,
 		CreatedAt:           output.CreatedAt,
-		CompletedAt:         output.CompletedAt,
+		ApprovedAt:          output.ApprovedAt,
+		DispatchedAt:        output.DispatchedAt,
+		ReceivedAt:          output.ReceivedAt,
+		CancelledAt:         output.CancelledAt,
 	}
 }
 
