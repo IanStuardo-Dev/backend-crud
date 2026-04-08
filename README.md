@@ -23,6 +23,7 @@ La base prioriza consistencia, permisos y trazabilidad desde el inicio, para que
 > Documentos complementarios:
 > - [Product Intelligence Roadmap](docs/product-intelligence-roadmap.md)
 > - [Local Semantic Embedding Design](docs/local-semantic-embedding-design.md)
+> - [QA Validation Guide](docs/qa-validation-guide.md)
 
 ### Arquitectura clara
 
