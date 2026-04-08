@@ -5,12 +5,12 @@ import (
 	"database/sql"
 	"errors"
 	"sort"
-	"time"
 
 	"github.com/lib/pq"
 
 	transferapp "github.com/IanStuardo-Dev/backend-crud/internal/application/transfer"
 	domaintransfer "github.com/IanStuardo-Dev/backend-crud/internal/domain/transfer"
+	domainuser "github.com/IanStuardo-Dev/backend-crud/internal/domain/user"
 )
 
 type repository struct {
@@ -38,24 +38,19 @@ func (r *repository) Create(ctx context.Context, transfer *domaintransfer.Transf
 	if err = ensureTransferBranchExists(ctx, tx, transfer.CompanyID, transfer.DestinationBranchID); err != nil {
 		return err
 	}
-	if err = ensureTransferUserExists(ctx, tx, transfer.RequestedByUserID); err != nil {
+	if err = ensureTransferRequesterCanAct(ctx, tx, transfer.CompanyID, transfer.RequestedByUserID); err != nil {
+		return err
+	}
+	if err = ensureTransferSupervisorEligible(ctx, tx, transfer.CompanyID, transfer.SupervisorUserID); err != nil {
 		return err
 	}
 
-	productRows, err := loadOriginInventoryForTransfer(ctx, tx, transfer.CompanyID, transfer.OriginBranchID, transfer.Items)
+	productRows, err := loadBranchInventoryForTransfer(ctx, tx, transfer.CompanyID, transfer.OriginBranchID, transfer.Items, false)
 	if err != nil {
 		return err
 	}
-	destinationRows, err := loadDestinationInventoryForTransfer(ctx, tx, transfer.CompanyID, transfer.DestinationBranchID, transfer.Items)
-	if err != nil {
-		return err
-	}
 
-	now := time.Now().UTC()
-	transfer.Status = "completed"
-	transfer.CompletedByUserID = transfer.RequestedByUserID
-	transfer.CompletedAt = &now
-
+	transfer.Status = domaintransfer.StatusPendingApproval
 	err = tx.QueryRowContext(
 		ctx,
 		`INSERT INTO inventory_transfers (
@@ -64,20 +59,19 @@ func (r *repository) Create(ctx context.Context, transfer *domaintransfer.Transf
 			destination_branch_id,
 			status,
 			requested_by_user_id,
-			completed_by_user_id,
+			supervisor_user_id,
 			note,
-			created_at,
-			completed_at
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,NOW(),NOW())
-		RETURNING id, created_at, completed_at`,
+			created_at
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,NOW())
+		RETURNING id, created_at`,
 		transfer.CompanyID,
 		transfer.OriginBranchID,
 		transfer.DestinationBranchID,
 		transfer.Status,
 		transfer.RequestedByUserID,
-		transfer.CompletedByUserID,
+		transfer.SupervisorUserID,
 		transfer.Note,
-	).Scan(&transfer.ID, &transfer.CreatedAt, &transfer.CompletedAt)
+	).Scan(&transfer.ID, &transfer.CreatedAt)
 	if err != nil {
 		if isForeignKeyViolation(err) {
 			return transferapp.ErrInvalidReference
@@ -86,16 +80,13 @@ func (r *repository) Create(ctx context.Context, transfer *domaintransfer.Transf
 	}
 
 	for index, item := range transfer.Items {
-		originRow, ok := productRows[item.ProductID]
-		if !ok {
+		productRow, ok := productRows[item.ProductID]
+		if !ok || productRow.ProductSKU == "" {
 			return transferapp.ErrInvalidReference
 		}
-		if originRow.AvailableStock < item.Quantity {
-			return transferapp.ErrInsufficientStock
-		}
 
-		transfer.Items[index].ProductSKU = originRow.ProductSKU
-		transfer.Items[index].ProductName = originRow.ProductName
+		transfer.Items[index].ProductSKU = productRow.ProductSKU
+		transfer.Items[index].ProductName = productRow.ProductName
 
 		if _, err = tx.ExecContext(
 			ctx,
@@ -106,6 +97,55 @@ func (r *repository) Create(ctx context.Context, transfer *domaintransfer.Transf
 			item.Quantity,
 		); err != nil {
 			return err
+		}
+	}
+
+	if err = tx.Commit(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *repository) Approve(ctx context.Context, transfer *domaintransfer.Transfer) error {
+	_, err := r.db.ExecContext(
+		ctx,
+		`UPDATE inventory_transfers
+		SET status = $1,
+			approved_by_user_id = $2,
+			approved_at = $3
+		WHERE id = $4`,
+		transfer.Status,
+		transfer.ApprovedByUserID,
+		transfer.ApprovedAt,
+		transfer.ID,
+	)
+	return err
+}
+
+func (r *repository) Dispatch(ctx context.Context, transfer *domaintransfer.Transfer) (err error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	productRows, err := loadBranchInventoryForTransfer(ctx, tx, transfer.CompanyID, transfer.OriginBranchID, transfer.Items, true)
+	if err != nil {
+		return err
+	}
+
+	for _, item := range transfer.Items {
+		originRow, ok := productRows[item.ProductID]
+		if !ok || originRow.ProductSKU == "" {
+			return transferapp.ErrInvalidReference
+		}
+		if originRow.AvailableStock < item.Quantity {
+			return transferapp.ErrInsufficientStock
 		}
 
 		originStockAfter := originRow.StockOnHand - item.Quantity
@@ -122,7 +162,73 @@ func (r *repository) Create(ctx context.Context, transfer *domaintransfer.Transf
 			return err
 		}
 
-		destinationStockAfter := destinationRows[item.ProductID].StockOnHand + item.Quantity
+		if _, err = tx.ExecContext(
+			ctx,
+			`INSERT INTO inventory_movements (
+				company_id,
+				branch_id,
+				product_id,
+				sale_id,
+				transfer_id,
+				movement_type,
+				quantity_delta,
+				stock_after,
+				created_by_user_id,
+				created_at
+			) VALUES ($1,$2,$3,NULL,$4,'transfer_out',$5,$6,$7,NOW())`,
+			transfer.CompanyID,
+			transfer.OriginBranchID,
+			item.ProductID,
+			transfer.ID,
+			-item.Quantity,
+			originStockAfter,
+			valueOrZero(transfer.DispatchedByUserID),
+		); err != nil {
+			return err
+		}
+	}
+
+	if _, err = tx.ExecContext(
+		ctx,
+		`UPDATE inventory_transfers
+		SET status = $1,
+			dispatched_by_user_id = $2,
+			dispatched_at = $3
+		WHERE id = $4`,
+		transfer.Status,
+		transfer.DispatchedByUserID,
+		transfer.DispatchedAt,
+		transfer.ID,
+	); err != nil {
+		return err
+	}
+
+	if err = tx.Commit(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *repository) Receive(ctx context.Context, transfer *domaintransfer.Transfer) (err error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	destinationRows, err := loadBranchInventoryForTransfer(ctx, tx, transfer.CompanyID, transfer.DestinationBranchID, transfer.Items, true)
+	if err != nil {
+		return err
+	}
+
+	for _, item := range transfer.Items {
+		destinationRow := destinationRows[item.ProductID]
+		destinationStockAfter := destinationRow.StockOnHand + item.Quantity
 		if _, err = tx.ExecContext(
 			ctx,
 			`INSERT INTO branch_inventory (
@@ -160,31 +266,6 @@ func (r *repository) Create(ctx context.Context, transfer *domaintransfer.Transf
 				stock_after,
 				created_by_user_id,
 				created_at
-			) VALUES ($1,$2,$3,NULL,$4,'transfer_out',$5,$6,$7,NOW())`,
-			transfer.CompanyID,
-			transfer.OriginBranchID,
-			item.ProductID,
-			transfer.ID,
-			-item.Quantity,
-			originStockAfter,
-			transfer.RequestedByUserID,
-		); err != nil {
-			return err
-		}
-
-		if _, err = tx.ExecContext(
-			ctx,
-			`INSERT INTO inventory_movements (
-				company_id,
-				branch_id,
-				product_id,
-				sale_id,
-				transfer_id,
-				movement_type,
-				quantity_delta,
-				stock_after,
-				created_by_user_id,
-				created_at
 			) VALUES ($1,$2,$3,NULL,$4,'transfer_in',$5,$6,$7,NOW())`,
 			transfer.CompanyID,
 			transfer.DestinationBranchID,
@@ -192,10 +273,111 @@ func (r *repository) Create(ctx context.Context, transfer *domaintransfer.Transf
 			transfer.ID,
 			item.Quantity,
 			destinationStockAfter,
-			transfer.RequestedByUserID,
+			valueOrZero(transfer.ReceivedByUserID),
 		); err != nil {
 			return err
 		}
+	}
+
+	if _, err = tx.ExecContext(
+		ctx,
+		`UPDATE inventory_transfers
+		SET status = $1,
+			received_by_user_id = $2,
+			received_at = $3
+		WHERE id = $4`,
+		transfer.Status,
+		transfer.ReceivedByUserID,
+		transfer.ReceivedAt,
+		transfer.ID,
+	); err != nil {
+		return err
+	}
+
+	if err = tx.Commit(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *repository) Cancel(ctx context.Context, transfer *domaintransfer.Transfer) (err error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	if transfer.DispatchedAt != nil && transfer.ReceivedAt == nil {
+		originRows, err := loadBranchInventoryForTransfer(ctx, tx, transfer.CompanyID, transfer.OriginBranchID, transfer.Items, true)
+		if err != nil {
+			return err
+		}
+
+		for _, item := range transfer.Items {
+			originRow, ok := originRows[item.ProductID]
+			if !ok || originRow.ProductSKU == "" {
+				return transferapp.ErrInvalidReference
+			}
+
+			originStockAfter := originRow.StockOnHand + item.Quantity
+			if _, err = tx.ExecContext(
+				ctx,
+				`UPDATE branch_inventory
+				SET stock_on_hand = $1, updated_at = NOW()
+				WHERE company_id = $2 AND branch_id = $3 AND product_id = $4`,
+				originStockAfter,
+				transfer.CompanyID,
+				transfer.OriginBranchID,
+				item.ProductID,
+			); err != nil {
+				return err
+			}
+
+			if _, err = tx.ExecContext(
+				ctx,
+				`INSERT INTO inventory_movements (
+					company_id,
+					branch_id,
+					product_id,
+					sale_id,
+					transfer_id,
+					movement_type,
+					quantity_delta,
+					stock_after,
+					created_by_user_id,
+					created_at
+				) VALUES ($1,$2,$3,NULL,$4,'transfer_return',$5,$6,$7,NOW())`,
+				transfer.CompanyID,
+				transfer.OriginBranchID,
+				item.ProductID,
+				transfer.ID,
+				item.Quantity,
+				originStockAfter,
+				valueOrZero(transfer.CancelledByUserID),
+			); err != nil {
+				return err
+			}
+		}
+	}
+
+	if _, err = tx.ExecContext(
+		ctx,
+		`UPDATE inventory_transfers
+		SET status = $1,
+			cancelled_by_user_id = $2,
+			cancelled_at = $3
+		WHERE id = $4`,
+		transfer.Status,
+		transfer.CancelledByUserID,
+		transfer.CancelledAt,
+		transfer.ID,
+	); err != nil {
+		return err
 	}
 
 	if err = tx.Commit(); err != nil {
@@ -206,11 +388,27 @@ func (r *repository) Create(ctx context.Context, transfer *domaintransfer.Transf
 }
 
 func (r *repository) List(ctx context.Context) ([]domaintransfer.Transfer, error) {
+	return r.listByQuery(ctx, `SELECT id, company_id, origin_branch_id, destination_branch_id, status, requested_by_user_id, supervisor_user_id,
+			approved_by_user_id, dispatched_by_user_id, received_by_user_id, cancelled_by_user_id,
+			note, created_at, approved_at, dispatched_at, received_at, cancelled_at
+		FROM inventory_transfers
+		ORDER BY id`)
+}
+
+func (r *repository) ListByBranch(ctx context.Context, branchID int64) ([]domaintransfer.Transfer, error) {
+	return r.listByQuery(ctx, `SELECT id, company_id, origin_branch_id, destination_branch_id, status, requested_by_user_id, supervisor_user_id,
+			approved_by_user_id, dispatched_by_user_id, received_by_user_id, cancelled_by_user_id,
+			note, created_at, approved_at, dispatched_at, received_at, cancelled_at
+		FROM inventory_transfers
+		WHERE origin_branch_id = $1 OR destination_branch_id = $1
+		ORDER BY id`, branchID)
+}
+
+func (r *repository) listByQuery(ctx context.Context, query string, args ...any) ([]domaintransfer.Transfer, error) {
 	rows, err := r.db.QueryContext(
 		ctx,
-		`SELECT id, company_id, origin_branch_id, destination_branch_id, status, requested_by_user_id, completed_by_user_id, note, created_at, completed_at
-		FROM inventory_transfers
-		ORDER BY id`,
+		query,
+		args...,
 	)
 	if err != nil {
 		return nil, err
@@ -235,7 +433,9 @@ func (r *repository) List(ctx context.Context) ([]domaintransfer.Transfer, error
 func (r *repository) GetByID(ctx context.Context, id int64) (*domaintransfer.Transfer, error) {
 	row := r.db.QueryRowContext(
 		ctx,
-		`SELECT id, company_id, origin_branch_id, destination_branch_id, status, requested_by_user_id, completed_by_user_id, note, created_at, completed_at
+		`SELECT id, company_id, origin_branch_id, destination_branch_id, status, requested_by_user_id, supervisor_user_id,
+			approved_by_user_id, dispatched_by_user_id, received_by_user_id, cancelled_by_user_id,
+			note, created_at, approved_at, dispatched_at, received_at, cancelled_at
 		FROM inventory_transfers
 		WHERE id = $1`,
 		id,
@@ -266,62 +466,22 @@ type transferInventoryRow struct {
 	AvailableStock int
 }
 
-func loadOriginInventoryForTransfer(ctx context.Context, tx *sql.Tx, companyID, branchID int64, items []domaintransfer.Item) (map[int64]transferInventoryRow, error) {
+func loadBranchInventoryForTransfer(ctx context.Context, tx *sql.Tx, companyID, branchID int64, items []domaintransfer.Item, forUpdate bool) (map[int64]transferInventoryRow, error) {
 	productIDs := make([]int64, 0, len(items))
 	for _, item := range items {
 		productIDs = append(productIDs, item.ProductID)
 	}
 	sort.Slice(productIDs, func(i, j int) bool { return productIDs[i] < productIDs[j] })
 
-	rows, err := tx.QueryContext(
-		ctx,
-		`SELECT bi.product_id, p.sku, p.name, bi.stock_on_hand, bi.reserved_stock, (bi.stock_on_hand - bi.reserved_stock) AS available_stock
+	query := `SELECT bi.product_id, p.sku, p.name, bi.stock_on_hand, bi.reserved_stock, (bi.stock_on_hand - bi.reserved_stock) AS available_stock
 		FROM branch_inventory bi
 		INNER JOIN products p ON p.id = bi.product_id AND p.company_id = bi.company_id
-		WHERE bi.company_id = $1 AND bi.branch_id = $2 AND bi.product_id = ANY($3)
-		FOR UPDATE`,
-		companyID,
-		branchID,
-		pq.Array(productIDs),
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	inventoryRows := make(map[int64]transferInventoryRow, len(items))
-	for rows.Next() {
-		var row transferInventoryRow
-		if err := rows.Scan(&row.ProductID, &row.ProductSKU, &row.ProductName, &row.StockOnHand, &row.ReservedStock, &row.AvailableStock); err != nil {
-			return nil, err
-		}
-		inventoryRows[row.ProductID] = row
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
+		WHERE bi.company_id = $1 AND bi.branch_id = $2 AND bi.product_id = ANY($3)`
+	if forUpdate {
+		query += "\n\t\tFOR UPDATE"
 	}
 
-	return inventoryRows, nil
-}
-
-func loadDestinationInventoryForTransfer(ctx context.Context, tx *sql.Tx, companyID, branchID int64, items []domaintransfer.Item) (map[int64]transferInventoryRow, error) {
-	productIDs := make([]int64, 0, len(items))
-	for _, item := range items {
-		productIDs = append(productIDs, item.ProductID)
-	}
-	sort.Slice(productIDs, func(i, j int) bool { return productIDs[i] < productIDs[j] })
-
-	rows, err := tx.QueryContext(
-		ctx,
-		`SELECT bi.product_id, p.sku, p.name, bi.stock_on_hand, bi.reserved_stock, (bi.stock_on_hand - bi.reserved_stock) AS available_stock
-		FROM branch_inventory bi
-		INNER JOIN products p ON p.id = bi.product_id AND p.company_id = bi.company_id
-		WHERE bi.company_id = $1 AND bi.branch_id = $2 AND bi.product_id = ANY($3)
-		FOR UPDATE`,
-		companyID,
-		branchID,
-		pq.Array(productIDs),
-	)
+	rows, err := tx.QueryContext(ctx, query, companyID, branchID, pq.Array(productIDs))
 	if err != nil {
 		return nil, err
 	}
@@ -369,24 +529,75 @@ func ensureTransferBranchExists(ctx context.Context, tx *sql.Tx, companyID, bran
 	return nil
 }
 
-func ensureTransferUserExists(ctx context.Context, tx *sql.Tx, userID int64) error {
-	var exists bool
-	err := tx.QueryRowContext(
-		ctx,
-		`SELECT EXISTS (
-			SELECT 1
-			FROM users
-			WHERE id = $1
-		)`,
-		userID,
-	).Scan(&exists)
+func ensureTransferRequesterCanAct(ctx context.Context, tx *sql.Tx, companyID, userID int64) error {
+	userRecord, err := loadTransferUser(ctx, tx, userID)
 	if err != nil {
 		return err
 	}
-	if !exists {
+	if !userRecord.IsActive {
 		return transferapp.ErrInvalidReference
 	}
+	if userRecord.Role == domainuser.RoleSuperAdmin {
+		return nil
+	}
+	if userRecord.CompanyID == nil || *userRecord.CompanyID != companyID {
+		return transferapp.ErrInvalidReference
+	}
+
 	return nil
+}
+
+func ensureTransferSupervisorEligible(ctx context.Context, tx *sql.Tx, companyID, userID int64) error {
+	userRecord, err := loadTransferUser(ctx, tx, userID)
+	if err != nil {
+		return err
+	}
+	if !userRecord.IsActive {
+		return transferapp.ErrInvalidReference
+	}
+	if userRecord.Role == domainuser.RoleSuperAdmin {
+		return nil
+	}
+	if userRecord.CompanyID == nil || *userRecord.CompanyID != companyID {
+		return transferapp.ErrInvalidReference
+	}
+	if userRecord.Role != domainuser.RoleCompanyAdmin && userRecord.Role != domainuser.RoleInventoryManager {
+		return transferapp.ErrInvalidReference
+	}
+
+	return nil
+}
+
+type transferUserRecord struct {
+	CompanyID *int64
+	Role      string
+	IsActive  bool
+}
+
+func loadTransferUser(ctx context.Context, tx *sql.Tx, userID int64) (transferUserRecord, error) {
+	var (
+		record        transferUserRecord
+		companyIDNull sql.NullInt64
+	)
+
+	err := tx.QueryRowContext(
+		ctx,
+		`SELECT company_id, role, is_active
+		FROM users
+		WHERE id = $1`,
+		userID,
+	).Scan(&companyIDNull, &record.Role, &record.IsActive)
+	if errors.Is(err, sql.ErrNoRows) {
+		return transferUserRecord{}, transferapp.ErrInvalidReference
+	}
+	if err != nil {
+		return transferUserRecord{}, err
+	}
+	if companyIDNull.Valid {
+		record.CompanyID = &companyIDNull.Int64
+	}
+
+	return record, nil
 }
 
 type transferScanner interface {
@@ -395,8 +606,15 @@ type transferScanner interface {
 
 func scanTransfer(row transferScanner) (domaintransfer.Transfer, error) {
 	var (
-		transfer    domaintransfer.Transfer
-		completedAt sql.NullTime
+		transfer               domaintransfer.Transfer
+		approvedByUserIDNull   sql.NullInt64
+		dispatchedByUserIDNull sql.NullInt64
+		receivedByUserIDNull   sql.NullInt64
+		cancelledByUserIDNull  sql.NullInt64
+		approvedAtNull         sql.NullTime
+		dispatchedAtNull       sql.NullTime
+		receivedAtNull         sql.NullTime
+		cancelledAtNull        sql.NullTime
 	)
 	err := row.Scan(
 		&transfer.ID,
@@ -405,16 +623,44 @@ func scanTransfer(row transferScanner) (domaintransfer.Transfer, error) {
 		&transfer.DestinationBranchID,
 		&transfer.Status,
 		&transfer.RequestedByUserID,
-		&transfer.CompletedByUserID,
+		&transfer.SupervisorUserID,
+		&approvedByUserIDNull,
+		&dispatchedByUserIDNull,
+		&receivedByUserIDNull,
+		&cancelledByUserIDNull,
 		&transfer.Note,
 		&transfer.CreatedAt,
-		&completedAt,
+		&approvedAtNull,
+		&dispatchedAtNull,
+		&receivedAtNull,
+		&cancelledAtNull,
 	)
 	if err != nil {
 		return domaintransfer.Transfer{}, err
 	}
-	if completedAt.Valid {
-		transfer.CompletedAt = &completedAt.Time
+	if approvedByUserIDNull.Valid {
+		transfer.ApprovedByUserID = &approvedByUserIDNull.Int64
+	}
+	if dispatchedByUserIDNull.Valid {
+		transfer.DispatchedByUserID = &dispatchedByUserIDNull.Int64
+	}
+	if receivedByUserIDNull.Valid {
+		transfer.ReceivedByUserID = &receivedByUserIDNull.Int64
+	}
+	if cancelledByUserIDNull.Valid {
+		transfer.CancelledByUserID = &cancelledByUserIDNull.Int64
+	}
+	if approvedAtNull.Valid {
+		transfer.ApprovedAt = &approvedAtNull.Time
+	}
+	if dispatchedAtNull.Valid {
+		transfer.DispatchedAt = &dispatchedAtNull.Time
+	}
+	if receivedAtNull.Valid {
+		transfer.ReceivedAt = &receivedAtNull.Time
+	}
+	if cancelledAtNull.Valid {
+		transfer.CancelledAt = &cancelledAtNull.Time
 	}
 	return transfer, nil
 }
@@ -470,4 +716,11 @@ func attachTransferItems(ctx context.Context, q transferQueryer, transfers []dom
 func isForeignKeyViolation(err error) bool {
 	var pqErr *pq.Error
 	return errors.As(err, &pqErr) && pqErr.Code == "23503"
+}
+
+func valueOrZero(value *int64) int64 {
+	if value == nil {
+		return 0
+	}
+	return *value
 }

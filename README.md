@@ -91,6 +91,13 @@ La estructura ya soporta crecimiento funcional sin rehacer la base:
 - descuento de stock al vender
 - registro del usuario que realiza la operacion
 - transferencias internas entre sucursales de la misma compania
+- supervisor obligatorio para aprobar transferencias
+- estados operativos para transferencias:
+  - `pending_approval`
+  - `approved`
+  - `in_transit`
+  - `received`
+  - `cancelled`
 
 ## Decisiones tecnicas importantes
 
@@ -189,7 +196,12 @@ Las sucursales incluyen ademas informacion operativa y geografica como:
 - `DELETE /products/{id}`
 - `POST /inventory/transfers`
 - `GET /inventory/transfers`
+- `GET /inventory/transfers/branches/{branch_id}`
 - `GET /inventory/transfers/{id}`
+- `POST /inventory/transfers/{id}/approve`
+- `POST /inventory/transfers/{id}/dispatch`
+- `POST /inventory/transfers/{id}/receive`
+- `POST /inventory/transfers/{id}/cancel`
 
 ## Levantar el proyecto
 

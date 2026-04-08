@@ -9,11 +9,18 @@ type transferResponse struct {
 	DestinationBranchID int64                  `json:"destination_branch_id"`
 	Status              string                 `json:"status"`
 	RequestedByUserID   int64                  `json:"requested_by_user_id"`
-	CompletedByUserID   int64                  `json:"completed_by_user_id"`
+	SupervisorUserID    int64                  `json:"supervisor_user_id"`
+	ApprovedByUserID    *int64                 `json:"approved_by_user_id,omitempty"`
+	DispatchedByUserID  *int64                 `json:"dispatched_by_user_id,omitempty"`
+	ReceivedByUserID    *int64                 `json:"received_by_user_id,omitempty"`
+	CancelledByUserID   *int64                 `json:"cancelled_by_user_id,omitempty"`
 	Note                string                 `json:"note"`
 	Items               []transferItemResponse `json:"items"`
 	CreatedAt           time.Time              `json:"created_at"`
-	CompletedAt         *time.Time             `json:"completed_at,omitempty"`
+	ApprovedAt          *time.Time             `json:"approved_at,omitempty"`
+	DispatchedAt        *time.Time             `json:"dispatched_at,omitempty"`
+	ReceivedAt          *time.Time             `json:"received_at,omitempty"`
+	CancelledAt         *time.Time             `json:"cancelled_at,omitempty"`
 }
 
 type transferItemResponse struct {
