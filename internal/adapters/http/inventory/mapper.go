@@ -1,6 +1,6 @@
 package inventoryhttp
 
-import inventoryapp "github.com/example/crud/internal/application/inventory"
+import inventoryapp "github.com/IanStuardo-Dev/backend-crud/internal/application/inventory"
 
 func toListByBranchInput(request listByBranchRequest) inventoryapp.ListByBranchInput {
 	return inventoryapp.ListByBranchInput{

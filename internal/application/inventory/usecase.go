@@ -3,7 +3,7 @@ package inventoryapp
 import (
 	"context"
 
-	domaininventory "github.com/example/crud/internal/domain/inventory"
+	domaininventory "github.com/IanStuardo-Dev/backend-crud/internal/domain/inventory"
 )
 
 type useCase struct {

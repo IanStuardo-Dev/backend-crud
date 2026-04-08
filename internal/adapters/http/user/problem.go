@@ -7,9 +7,9 @@ import (
 	"mime"
 	"net/http"
 
-	authapp "github.com/example/crud/internal/application/auth"
-	userapp "github.com/example/crud/internal/application/user"
-	domainuser "github.com/example/crud/internal/domain/user"
+	authapp "github.com/IanStuardo-Dev/backend-crud/internal/application/auth"
+	userapp "github.com/IanStuardo-Dev/backend-crud/internal/application/user"
+	domainuser "github.com/IanStuardo-Dev/backend-crud/internal/domain/user"
 )
 
 type problemDetail struct {

@@ -3,7 +3,7 @@ package authhttp
 import (
 	"net/http"
 
-	authapp "github.com/example/crud/internal/application/auth"
+	authapp "github.com/IanStuardo-Dev/backend-crud/internal/application/auth"
 )
 
 type Handler struct {

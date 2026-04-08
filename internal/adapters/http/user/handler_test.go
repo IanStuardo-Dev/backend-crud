@@ -9,10 +9,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	userhttp "github.com/example/crud/internal/adapters/http/user"
-	userapp "github.com/example/crud/internal/application/user"
-	domainuser "github.com/example/crud/internal/domain/user"
-	"github.com/example/crud/internal/infrastructure/http/router"
+	userhttp "github.com/IanStuardo-Dev/backend-crud/internal/adapters/http/user"
+	userapp "github.com/IanStuardo-Dev/backend-crud/internal/application/user"
+	domainuser "github.com/IanStuardo-Dev/backend-crud/internal/domain/user"
+	"github.com/IanStuardo-Dev/backend-crud/internal/infrastructure/http/router"
 )
 
 type memoryUserRepository struct {

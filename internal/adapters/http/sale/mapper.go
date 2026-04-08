@@ -1,6 +1,6 @@
 package salehttp
 
-import saleapp "github.com/example/crud/internal/application/sale"
+import saleapp "github.com/IanStuardo-Dev/backend-crud/internal/application/sale"
 
 func toCreateInput(request createSaleRequest, userID int64) saleapp.CreateInput {
 	items := make([]saleapp.CreateItemInput, 0, len(request.Items))

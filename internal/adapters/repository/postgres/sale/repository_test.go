@@ -10,8 +10,8 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 
-	saleapp "github.com/example/crud/internal/application/sale"
-	domainsale "github.com/example/crud/internal/domain/sale"
+	saleapp "github.com/IanStuardo-Dev/backend-crud/internal/application/sale"
+	domainsale "github.com/IanStuardo-Dev/backend-crud/internal/domain/sale"
 )
 
 func TestRepositoryCreateDiscountsInventoryAndRegistersSale(t *testing.T) {

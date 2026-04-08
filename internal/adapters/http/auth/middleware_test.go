@@ -6,8 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	authhttp "github.com/example/crud/internal/adapters/http/auth"
-	authapp "github.com/example/crud/internal/application/auth"
+	authhttp "github.com/IanStuardo-Dev/backend-crud/internal/adapters/http/auth"
+	authapp "github.com/IanStuardo-Dev/backend-crud/internal/application/auth"
 )
 
 type stubVerifier struct {

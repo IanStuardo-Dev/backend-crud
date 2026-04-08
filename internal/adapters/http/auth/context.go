@@ -3,7 +3,7 @@ package authhttp
 import (
 	"context"
 
-	authapp "github.com/example/crud/internal/application/auth"
+	authapp "github.com/IanStuardo-Dev/backend-crud/internal/application/auth"
 )
 
 type contextKey string

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	domainsale "github.com/example/crud/internal/domain/sale"
+	domainsale "github.com/IanStuardo-Dev/backend-crud/internal/domain/sale"
 )
 
 type stubRepository struct {

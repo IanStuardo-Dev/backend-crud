@@ -1,4 +1,4 @@
-module github.com/example/crud
+module github.com/IanStuardo-Dev/backend-crud
 
 go 1.23.0
 

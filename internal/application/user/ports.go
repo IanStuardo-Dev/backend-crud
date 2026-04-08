@@ -3,7 +3,7 @@ package userapp
 import (
 	"context"
 
-	domainuser "github.com/example/crud/internal/domain/user"
+	domainuser "github.com/IanStuardo-Dev/backend-crud/internal/domain/user"
 )
 
 // Repository defines the persistence contract required by the use case.

@@ -7,7 +7,7 @@ import (
 	"math"
 	"strings"
 
-	domainproduct "github.com/example/crud/internal/domain/product"
+	domainproduct "github.com/IanStuardo-Dev/backend-crud/internal/domain/product"
 )
 
 type useCase struct {

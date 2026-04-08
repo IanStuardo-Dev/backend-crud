@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"strconv"
 
-	authhttp "github.com/example/crud/internal/adapters/http/auth"
-	saleapp "github.com/example/crud/internal/application/sale"
+	authhttp "github.com/IanStuardo-Dev/backend-crud/internal/adapters/http/auth"
+	saleapp "github.com/IanStuardo-Dev/backend-crud/internal/application/sale"
 	"github.com/gorilla/mux"
 )
 

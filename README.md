@@ -294,6 +294,6 @@ PATH="$(pwd)/bin:$PATH" make test-pretty
 
 ## Notas
 
-- el modulo actual en `go.mod` es `github.com/example/crud`
+- el modulo actual en `go.mod` es `github.com/IanStuardo-Dev/backend-crud`
 - la cercania entre sucursales hoy se resuelve con `latitude` y `longitude`, no con `pgvector`
 - no existe un endpoint `/health` por ahora

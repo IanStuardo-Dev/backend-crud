@@ -3,7 +3,7 @@ package saleapp
 import (
 	"context"
 
-	domainsale "github.com/example/crud/internal/domain/sale"
+	domainsale "github.com/IanStuardo-Dev/backend-crud/internal/domain/sale"
 )
 
 // Repository defines the persistence contract required by the sales use case.

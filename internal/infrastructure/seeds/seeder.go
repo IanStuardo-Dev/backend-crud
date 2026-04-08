@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	localembedding "github.com/example/crud/internal/infrastructure/embedding/local"
-	passwordinfra "github.com/example/crud/internal/infrastructure/security/password"
+	localembedding "github.com/IanStuardo-Dev/backend-crud/internal/infrastructure/embedding/local"
+	passwordinfra "github.com/IanStuardo-Dev/backend-crud/internal/infrastructure/security/password"
 )
 
 func Run(ctx context.Context, db *sql.DB) error {

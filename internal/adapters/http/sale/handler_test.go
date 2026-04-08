@@ -10,12 +10,12 @@ import (
 	"testing"
 	"time"
 
-	authhttp "github.com/example/crud/internal/adapters/http/auth"
-	salehttp "github.com/example/crud/internal/adapters/http/sale"
-	authapp "github.com/example/crud/internal/application/auth"
-	saleapp "github.com/example/crud/internal/application/sale"
-	domainsale "github.com/example/crud/internal/domain/sale"
-	"github.com/example/crud/internal/infrastructure/http/router"
+	authhttp "github.com/IanStuardo-Dev/backend-crud/internal/adapters/http/auth"
+	salehttp "github.com/IanStuardo-Dev/backend-crud/internal/adapters/http/sale"
+	authapp "github.com/IanStuardo-Dev/backend-crud/internal/application/auth"
+	saleapp "github.com/IanStuardo-Dev/backend-crud/internal/application/sale"
+	domainsale "github.com/IanStuardo-Dev/backend-crud/internal/domain/sale"
+	"github.com/IanStuardo-Dev/backend-crud/internal/infrastructure/http/router"
 )
 
 type memorySaleRepository struct {
