@@ -1,6 +1,6 @@
 package userhttp
 
-import userapp "github.com/example/crud/internal/application/user"
+import userapp "github.com/IanStuardo-Dev/backend-crud/internal/application/user"
 
 func toCreateInput(request createUserRequest) userapp.CreateInput {
 	isActive := true

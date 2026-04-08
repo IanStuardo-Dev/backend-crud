@@ -4,9 +4,9 @@ import (
 	"context"
 	"log"
 
-	"github.com/example/crud/internal/infrastructure/config"
-	postgresdb "github.com/example/crud/internal/infrastructure/persistence/postgres"
-	"github.com/example/crud/internal/infrastructure/seeds"
+	"github.com/IanStuardo-Dev/backend-crud/internal/infrastructure/config"
+	postgresdb "github.com/IanStuardo-Dev/backend-crud/internal/infrastructure/persistence/postgres"
+	"github.com/IanStuardo-Dev/backend-crud/internal/infrastructure/seeds"
 )
 
 func main() {

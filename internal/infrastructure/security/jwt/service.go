@@ -7,7 +7,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 
-	authapp "github.com/example/crud/internal/application/auth"
+	authapp "github.com/IanStuardo-Dev/backend-crud/internal/application/auth"
 )
 
 type Service struct {

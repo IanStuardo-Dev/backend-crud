@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
-	producthttp "github.com/example/crud/internal/adapters/http/product"
-	productapp "github.com/example/crud/internal/application/product"
-	domainproduct "github.com/example/crud/internal/domain/product"
-	"github.com/example/crud/internal/infrastructure/http/router"
+	producthttp "github.com/IanStuardo-Dev/backend-crud/internal/adapters/http/product"
+	productapp "github.com/IanStuardo-Dev/backend-crud/internal/application/product"
+	domainproduct "github.com/IanStuardo-Dev/backend-crud/internal/domain/product"
+	"github.com/IanStuardo-Dev/backend-crud/internal/infrastructure/http/router"
 )
 
 type memoryProductRepository struct {

@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"net/http"
 
-	inventoryapp "github.com/example/crud/internal/application/inventory"
-	domaininventory "github.com/example/crud/internal/domain/inventory"
+	inventoryapp "github.com/IanStuardo-Dev/backend-crud/internal/application/inventory"
+	domaininventory "github.com/IanStuardo-Dev/backend-crud/internal/domain/inventory"
 )
 
 type problemDetail struct {

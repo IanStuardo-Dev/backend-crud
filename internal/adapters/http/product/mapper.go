@@ -3,7 +3,7 @@ package producthttp
 import (
 	"strconv"
 
-	productapp "github.com/example/crud/internal/application/product"
+	productapp "github.com/IanStuardo-Dev/backend-crud/internal/application/product"
 )
 
 func toCreateInput(request createProductRequest) productapp.CreateInput {

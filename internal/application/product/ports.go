@@ -3,7 +3,7 @@ package productapp
 import (
 	"context"
 
-	domainproduct "github.com/example/crud/internal/domain/product"
+	domainproduct "github.com/IanStuardo-Dev/backend-crud/internal/domain/product"
 )
 
 // Repository defines the persistence contract required by the use case.

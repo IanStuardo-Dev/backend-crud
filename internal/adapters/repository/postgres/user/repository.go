@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"errors"
 
-	userapp "github.com/example/crud/internal/application/user"
-	domainuser "github.com/example/crud/internal/domain/user"
+	userapp "github.com/IanStuardo-Dev/backend-crud/internal/application/user"
+	domainuser "github.com/IanStuardo-Dev/backend-crud/internal/domain/user"
 	"github.com/lib/pq"
 )
 

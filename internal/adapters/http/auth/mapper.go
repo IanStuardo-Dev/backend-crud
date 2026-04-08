@@ -1,6 +1,6 @@
 package authhttp
 
-import authapp "github.com/example/crud/internal/application/auth"
+import authapp "github.com/IanStuardo-Dev/backend-crud/internal/application/auth"
 
 func toLoginInput(request loginRequest) authapp.LoginInput {
 	return authapp.LoginInput{

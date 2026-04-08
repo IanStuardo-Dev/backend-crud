@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	domainproduct "github.com/example/crud/internal/domain/product"
+	domainproduct "github.com/IanStuardo-Dev/backend-crud/internal/domain/product"
 )
 
 func TestServiceEmbedTextReturnsDeterministicNormalizedVector(t *testing.T) {
