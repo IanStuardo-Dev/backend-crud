@@ -1,8 +1,8 @@
 {
   "info": {
-    "name": "Backend CRUD API",
+    "name": "Inventory Backend API",
     "_postman_id": "d5e0d30c-6ed7-4d6d-8b75-1f44b4188f45",
-    "description": "Coleccion Postman actualizada para probar autenticacion JWT, usuarios, productos, ventas, inventario y transferencias internas.",
+    "description": "Coleccion Postman para probar autenticacion JWT, usuarios, productos, ventas, inventario y el workflow de transferencias con aprobacion.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -37,6 +37,10 @@
     {
       "key": "transferId",
       "value": "1"
+    },
+    {
+      "key": "supervisorUserId",
+      "value": "2"
     },
     {
       "key": "superAdminEmail",
@@ -136,7 +140,8 @@
                   "  pm.response.to.have.status(200);",
                   "});",
                   "var json = pm.response.json();",
-                  "pm.collectionVariables.set('companyAdminToken', json.data.access_token);"
+                  "pm.collectionVariables.set('companyAdminToken', json.data.access_token);",
+                  "pm.collectionVariables.set('supervisorUserId', json.data.user.id);"
                 ]
               }
             }
@@ -582,7 +587,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"company_id\": {{companyId}},\n  \"origin_branch_id\": {{branchId}},\n  \"destination_branch_id\": {{secondaryBranchId}},\n  \"note\": \"Transferencia creada desde Postman\",\n  \"items\": [\n    {\n      \"product_id\": {{productId}},\n      \"quantity\": 1\n    }\n  ]\n}"
+              "raw": "{\n  \"company_id\": {{companyId}},\n  \"origin_branch_id\": {{branchId}},\n  \"destination_branch_id\": {{secondaryBranchId}},\n  \"supervisor_user_id\": {{supervisorUserId}},\n  \"note\": \"Transferencia creada desde Postman\",\n  \"items\": [\n    {\n      \"product_id\": {{productId}},\n      \"quantity\": 1\n    }\n  ]\n}"
             },
             "url": "{{baseUrl}}/inventory/transfers"
           }
@@ -601,6 +606,19 @@
           }
         },
         {
+          "name": "List Transfers By Branch",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{inventoryManagerToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/inventory/transfers/branches/{{secondaryBranchId}}"
+          }
+        },
+        {
           "name": "Get Transfer By ID",
           "request": {
             "method": "GET",
@@ -611,6 +629,110 @@
               }
             ],
             "url": "{{baseUrl}}/inventory/transfers/{{transferId}}"
+          }
+        },
+        {
+          "name": "Approve Transfer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{companyAdminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/inventory/transfers/{{transferId}}/approve"
+          }
+        },
+        {
+          "name": "Dispatch Transfer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{inventoryManagerToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/inventory/transfers/{{transferId}}/dispatch"
+          }
+        },
+        {
+          "name": "Receive Transfer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{inventoryManagerToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/inventory/transfers/{{transferId}}/receive"
+          }
+        },
+        {
+          "name": "Cancel Transfer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200 or 409', function () {",
+                  "  pm.expect([200, 409]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{inventoryManagerToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/inventory/transfers/{{transferId}}/cancel"
           }
         }
       ]
