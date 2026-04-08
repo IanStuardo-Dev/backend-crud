@@ -1,0 +1,33 @@
+name: Branch Flow
+
+on:
+  pull_request:
+    branches:
+      - qa
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate-qa-source:
+    if: github.base_ref == 'qa'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enforce dev to qa flow
+        run: |
+          if [ "${{ github.head_ref }}" != "dev" ]; then
+            echo "Only pull requests from 'dev' can target 'qa'."
+            exit 1
+          fi
+
+  validate-main-source:
+    if: github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enforce qa to main flow
+        run: |
+          if [ "${{ github.head_ref }}" != "qa" ]; then
+            echo "Only pull requests from 'qa' can target 'main'."
+            exit 1
+          fi
