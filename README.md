@@ -19,6 +19,11 @@ La base prioriza consistencia, permisos y trazabilidad desde el inicio, para que
 
 ## Principios del proyecto
 
+Documento complementario:
+
+- [Product Intelligence Roadmap](docs/product-intelligence-roadmap.md)
+- [Local Semantic Embedding Design](docs/local-semantic-embedding-design.md)
+
 ### Arquitectura clara
 
 La organizacion sigue una separacion por capas:
@@ -45,7 +50,7 @@ El proyecto privilegia decisiones utiles para un backend real:
 - JWT para autenticacion simple y portable
 - `database/sql` para mantener control explicito sobre queries y transacciones
 - `pgvector` para enriquecer productos con similitud semantica sin salir de PostgreSQL
-- embeddings locales deterministas para no depender de proveedores externos en esta etapa
+- un servicio local de embeddings semanticos para mantener la inferencia fuera del backend principal
 
 ### Escalabilidad de dominio
 
@@ -74,7 +79,7 @@ La estructura ya soporta crecimiento funcional sin rehacer la base:
 
 - gestion de catalogo de productos
 - catalogo con `sku`, `name`, `description`, `category`, `brand`, precio y moneda
-- generacion automatica de embedding local
+- generacion automatica de embedding semantico local
 - endpoint de vecinos cercanos:
   - `GET /products/{id}/neighbors`
 
@@ -136,11 +141,13 @@ En este proyecto `pgvector` se usa para similitud semantica de productos, no par
 En esta etapa se privilegio independencia operativa:
 
 - sin costo por request a terceros
-- sin dependencia de red
-- resultados deterministas
-- entorno local y CI mas simples
+- sin dependencia de APIs externas
+- posibilidad de correr toda la pila en Docker Compose
+- separacion clara entre backend transaccional e inferencia semantica
 
-La implementacion actual toma informacion textual del producto, aplica hashing sobre tokens y bigramas y normaliza un vector de `1536` dimensiones.
+La implementacion actual usa un servicio local basado en `FastEmbed` y el modelo `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`, expuesto en la misma red del proyecto. El servicio genera embeddings semanticos y los adapta a `1536` dimensiones para mantener compatibilidad con el esquema actual de `pgvector`.
+
+Antes de generar el embedding, el texto pasa por una normalizacion local orientada al dominio: lowercase, eliminacion de tildes, unificacion de unidades y alias utiles como `coffee -> cafe`.
 
 ## Modelo de datos
 
@@ -205,13 +212,19 @@ Las sucursales incluyen ademas informacion operativa y geografica como:
 
 ## Levantar el proyecto
 
-### 1. Base de datos
+### 1. Stack local
 
 ```sh
-docker compose up -d
+docker compose up -d --build
 ```
 
-Configuracion del contenedor:
+Esto levanta:
+
+- PostgreSQL con `pgvector`
+- API en Go
+- servicio local de embeddings semanticos
+
+Configuracion principal:
 
 - `POSTGRES_DB=go-crud`
 - `POSTGRES_USER=postgres`
@@ -233,6 +246,9 @@ export DB_SSLMODE=disable
 export JWT_SECRET=dev-secret-change-me
 export JWT_ISSUER=crud-api
 export JWT_TTL=24h
+export EMBEDDING_PROVIDER=local-semantic-service
+export EMBEDDING_SERVICE_URL=http://localhost:8000
+export EMBEDDING_REQUEST_TIMEOUT=45s
 ```
 
 Alternativamente:
@@ -242,6 +258,8 @@ export DATABASE_URL='postgres://postgres:postgres@localhost:5432/go-crud?sslmode
 ```
 
 Si existe un `.env`, la aplicacion intenta cargarlo automaticamente.
+
+Si ejecutas la API fuera de Compose, el proveedor por defecto sigue siendo `local-hash`. Para usar el servicio semantico local debes definir `EMBEDDING_PROVIDER=local-semantic-service`.
 
 ### 3. Migraciones
 
@@ -288,6 +306,9 @@ Tambien se cargan 10 productos base en la compania `1`, sucursal `1`, con embedd
 
 - `Wireless Mouse`
 - `Wireless Ergonomic Mouse`
+- `Cafe Dolca Instantaneo 170g`
+- `Cafe Nestle Clasico 170g`
+- `Coffee Marley Instant Blend 170g`
 
 ## Ejemplos rapidos
 

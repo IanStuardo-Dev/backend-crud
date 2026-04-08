@@ -23,7 +23,7 @@ import (
 	transferapp "github.com/IanStuardo-Dev/backend-crud/internal/application/transfer"
 	userapp "github.com/IanStuardo-Dev/backend-crud/internal/application/user"
 	"github.com/IanStuardo-Dev/backend-crud/internal/infrastructure/config"
-	localembedding "github.com/IanStuardo-Dev/backend-crud/internal/infrastructure/embedding/local"
+	embeddingprovider "github.com/IanStuardo-Dev/backend-crud/internal/infrastructure/embedding/provider"
 	"github.com/IanStuardo-Dev/backend-crud/internal/infrastructure/http/router"
 	postgresdb "github.com/IanStuardo-Dev/backend-crud/internal/infrastructure/persistence/postgres"
 	jwtinfra "github.com/IanStuardo-Dev/backend-crud/internal/infrastructure/security/jwt"
@@ -55,7 +55,8 @@ func main() {
 	inventoryUseCase := inventoryapp.NewUseCase(inventoryRepo)
 	inventoryHandler := inventoryhttp.NewHandler(inventoryUseCase)
 	productRepo := postgresproduct.NewRepository(sqlDB)
-	productEmbedder := localembedding.NewService()
+	productEmbedder, embeddingProviderName := embeddingprovider.NewProductEmbedder()
+	log.Printf("product embedding provider: %s", embeddingProviderName)
 	productUseCase := productapp.NewUseCase(productRepo, productEmbedder)
 	productHandler := producthttp.NewHandler(productUseCase)
 	saleRepo := postgressale.NewRepository(sqlDB)
