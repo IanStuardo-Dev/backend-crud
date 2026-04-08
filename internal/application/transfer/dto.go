@@ -7,6 +7,7 @@ type CreateInput struct {
 	OriginBranchID      int64
 	DestinationBranchID int64
 	RequestedByUserID   int64
+	SupervisorUserID    int64
 	Note                string
 	Items               []CreateItemInput
 }
@@ -23,11 +24,18 @@ type Output struct {
 	DestinationBranchID int64
 	Status              string
 	RequestedByUserID   int64
-	CompletedByUserID   int64
+	SupervisorUserID    int64
+	ApprovedByUserID    *int64
+	DispatchedByUserID  *int64
+	ReceivedByUserID    *int64
+	CancelledByUserID   *int64
 	Note                string
 	Items               []ItemOutput
 	CreatedAt           time.Time
-	CompletedAt         *time.Time
+	ApprovedAt          *time.Time
+	DispatchedAt        *time.Time
+	ReceivedAt          *time.Time
+	CancelledAt         *time.Time
 }
 
 type ItemOutput struct {
@@ -35,4 +43,9 @@ type ItemOutput struct {
 	ProductSKU  string
 	ProductName string
 	Quantity    int
+}
+
+type TransitionInput struct {
+	ID          int64
+	ActorUserID int64
 }
