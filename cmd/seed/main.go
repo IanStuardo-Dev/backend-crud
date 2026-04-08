@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/IanStuardo-Dev/backend-crud/internal/infrastructure/config"
+	embeddingprovider "github.com/IanStuardo-Dev/backend-crud/internal/infrastructure/embedding/provider"
 	postgresdb "github.com/IanStuardo-Dev/backend-crud/internal/infrastructure/persistence/postgres"
 	"github.com/IanStuardo-Dev/backend-crud/internal/infrastructure/seeds"
 )
@@ -17,7 +18,10 @@ func main() {
 	}
 	defer sqlDB.Close()
 
-	if err := seeds.Run(context.Background(), sqlDB); err != nil {
+	embedder, embeddingProviderName := embeddingprovider.NewProductEmbedder()
+	log.Printf("seed embedding provider: %s", embeddingProviderName)
+
+	if err := seeds.Run(context.Background(), sqlDB, embedder); err != nil {
 		log.Fatalf("seed run: %v", err)
 	}
 
