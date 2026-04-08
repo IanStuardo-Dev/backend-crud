@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	authhttp "github.com/example/crud/internal/adapters/http/auth"
-	authapp "github.com/example/crud/internal/application/auth"
-	"github.com/example/crud/internal/infrastructure/http/router"
+	authhttp "github.com/IanStuardo-Dev/backend-crud/internal/adapters/http/auth"
+	authapp "github.com/IanStuardo-Dev/backend-crud/internal/application/auth"
+	"github.com/IanStuardo-Dev/backend-crud/internal/infrastructure/http/router"
 )
 
 type stubAuthUseCase struct {

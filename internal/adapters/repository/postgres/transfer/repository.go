@@ -9,8 +9,8 @@ import (
 
 	"github.com/lib/pq"
 
-	transferapp "github.com/example/crud/internal/application/transfer"
-	domaintransfer "github.com/example/crud/internal/domain/transfer"
+	transferapp "github.com/IanStuardo-Dev/backend-crud/internal/application/transfer"
+	domaintransfer "github.com/IanStuardo-Dev/backend-crud/internal/domain/transfer"
 )
 
 type repository struct {

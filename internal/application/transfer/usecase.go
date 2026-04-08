@@ -3,7 +3,7 @@ package transferapp
 import (
 	"context"
 
-	domaintransfer "github.com/example/crud/internal/domain/transfer"
+	domaintransfer "github.com/IanStuardo-Dev/backend-crud/internal/domain/transfer"
 )
 
 type useCase struct {

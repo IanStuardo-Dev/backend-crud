@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	domainuser "github.com/example/crud/internal/domain/user"
+	domainuser "github.com/IanStuardo-Dev/backend-crud/internal/domain/user"
 )
 
 type stubRepository struct {

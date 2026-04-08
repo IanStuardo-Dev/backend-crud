@@ -7,7 +7,7 @@ import (
 	"strings"
 	"unicode"
 
-	domainproduct "github.com/example/crud/internal/domain/product"
+	domainproduct "github.com/IanStuardo-Dev/backend-crud/internal/domain/product"
 )
 
 type Service struct{}

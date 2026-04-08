@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strconv"
 
-	authhttp "github.com/example/crud/internal/adapters/http/auth"
-	inventoryapp "github.com/example/crud/internal/application/inventory"
+	authhttp "github.com/IanStuardo-Dev/backend-crud/internal/adapters/http/auth"
+	inventoryapp "github.com/IanStuardo-Dev/backend-crud/internal/application/inventory"
 )
 
 type Handler struct {

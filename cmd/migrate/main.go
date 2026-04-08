@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/example/crud/internal/infrastructure/config"
-	"github.com/example/crud/internal/infrastructure/migrations"
+	"github.com/IanStuardo-Dev/backend-crud/internal/infrastructure/config"
+	"github.com/IanStuardo-Dev/backend-crud/internal/infrastructure/migrations"
 )
 
 func main() {

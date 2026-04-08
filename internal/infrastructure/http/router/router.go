@@ -3,12 +3,12 @@ package router
 import (
 	"net/http"
 
-	authhttp "github.com/example/crud/internal/adapters/http/auth"
-	inventoryhttp "github.com/example/crud/internal/adapters/http/inventory"
-	producthttp "github.com/example/crud/internal/adapters/http/product"
-	salehttp "github.com/example/crud/internal/adapters/http/sale"
-	transferhttp "github.com/example/crud/internal/adapters/http/transfer"
-	userhttp "github.com/example/crud/internal/adapters/http/user"
+	authhttp "github.com/IanStuardo-Dev/backend-crud/internal/adapters/http/auth"
+	inventoryhttp "github.com/IanStuardo-Dev/backend-crud/internal/adapters/http/inventory"
+	producthttp "github.com/IanStuardo-Dev/backend-crud/internal/adapters/http/product"
+	salehttp "github.com/IanStuardo-Dev/backend-crud/internal/adapters/http/sale"
+	transferhttp "github.com/IanStuardo-Dev/backend-crud/internal/adapters/http/transfer"
+	userhttp "github.com/IanStuardo-Dev/backend-crud/internal/adapters/http/user"
 	"github.com/gorilla/mux"
 )
 

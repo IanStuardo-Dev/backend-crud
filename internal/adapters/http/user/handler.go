@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"strconv"
 
-	authhttp "github.com/example/crud/internal/adapters/http/auth"
-	userapp "github.com/example/crud/internal/application/user"
-	domainuser "github.com/example/crud/internal/domain/user"
+	authhttp "github.com/IanStuardo-Dev/backend-crud/internal/adapters/http/auth"
+	userapp "github.com/IanStuardo-Dev/backend-crud/internal/application/user"
+	domainuser "github.com/IanStuardo-Dev/backend-crud/internal/domain/user"
 	"github.com/gorilla/mux"
 )
 

@@ -7,8 +7,8 @@ import (
 	"mime"
 	"net/http"
 
-	productapp "github.com/example/crud/internal/application/product"
-	domainproduct "github.com/example/crud/internal/domain/product"
+	productapp "github.com/IanStuardo-Dev/backend-crud/internal/application/product"
+	domainproduct "github.com/IanStuardo-Dev/backend-crud/internal/domain/product"
 )
 
 type problemDetail struct {

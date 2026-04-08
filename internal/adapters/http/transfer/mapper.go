@@ -1,6 +1,6 @@
 package transferhttp
 
-import transferapp "github.com/example/crud/internal/application/transfer"
+import transferapp "github.com/IanStuardo-Dev/backend-crud/internal/application/transfer"
 
 func toCreateInput(request createTransferRequest, requestedByUserID int64) transferapp.CreateInput {
 	items := make([]transferapp.CreateItemInput, 0, len(request.Items))
