@@ -232,7 +232,7 @@ func ensureSeedProduct(ctx context.Context, db *sql.DB, embedder productapp.Embe
 }
 
 func seedProducts() []seedProduct {
-	return []seedProduct{
+	products := []seedProduct{
 		{
 			CompanyID:   1,
 			BranchID:    1,
@@ -354,6 +354,8 @@ func seedProducts() []seedProduct {
 			Stock:       7,
 		},
 	}
+
+	return append(products, seedGroceryProducts()...)
 }
 
 func productEmbeddingText(product seedProduct) string {
