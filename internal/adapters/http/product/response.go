@@ -33,6 +33,10 @@ type neighborsCollectionResponse struct {
 	Meta neighborsMetaResponse `json:"meta"`
 }
 
+type neighborFeedbackResourceResponse struct {
+	Data neighborFeedbackResponse `json:"data"`
+}
+
 type neighborResponse struct {
 	ProductID            int64   `json:"product_id"`
 	SKU                  string  `json:"sku"`
@@ -51,6 +55,17 @@ type neighborsMetaResponse struct {
 	SourceProductName string `json:"source_product_name"`
 	Count             int    `json:"count"`
 	Limit             int    `json:"limit"`
+}
+
+type neighborFeedbackResponse struct {
+	SourceProductID    int64     `json:"source_product_id"`
+	SuggestedProductID int64     `json:"suggested_product_id"`
+	BranchID           int64     `json:"branch_id"`
+	UserID             int64     `json:"user_id"`
+	Action             string    `json:"action"`
+	Note               string    `json:"note,omitempty"`
+	CreatedAt          time.Time `json:"created_at"`
+	UpdatedAt          time.Time `json:"updated_at"`
 }
 
 type metaResponse struct {

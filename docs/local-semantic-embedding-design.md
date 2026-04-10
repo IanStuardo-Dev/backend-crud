@@ -206,6 +206,15 @@ curl 'http://localhost:8080/products/44/neighbors?limit=5&min_similarity=0.20' \
   -H "Authorization: Bearer TU_TOKEN"
 ```
 
+### Registrar feedback sobre una sugerencia
+
+```sh
+curl -X POST 'http://localhost:8080/products/44/neighbors/52/feedback' \
+  -H "Authorization: Bearer TU_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"branch_id":1,"action":"accepted","note":"sirvio como reemplazo"}'
+```
+
 ## Costos y tradeoffs
 
 Lo mas caro de esta capacidad no es la API en Go ni PostgreSQL, sino el `embedding-service`.
@@ -226,6 +235,6 @@ Este costo se compensa mejor cuando:
 
 - versionar embeddings en base de datos
 - agregar score hibrido mas alla del vector puro
-- capturar feedback humano sobre sugerencias
+- agregar lectura agregada y explotacion del feedback humano ya capturado
 - precalcular vecinos de productos de alta rotacion
 - instrumentar uso por compania para monetizar la capa inteligente

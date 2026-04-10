@@ -12,6 +12,7 @@ type Repository interface {
 	List(ctx context.Context) ([]domainproduct.Product, error)
 	GetByID(ctx context.Context, id int64) (*domainproduct.Product, error)
 	FindNeighbors(ctx context.Context, sourceProductID, companyID int64, limit int, minSimilarity float64) ([]NeighborOutput, error)
+	SaveNeighborFeedback(ctx context.Context, input RecordNeighborFeedbackInput) (NeighborFeedbackOutput, error)
 	Update(ctx context.Context, product *domainproduct.Product) error
 	Delete(ctx context.Context, id int64) error
 }
@@ -26,6 +27,7 @@ type UseCase interface {
 	List(ctx context.Context) ([]Output, error)
 	GetByID(ctx context.Context, id int64) (Output, error)
 	FindNeighbors(ctx context.Context, input FindNeighborsInput) (FindNeighborsOutput, error)
+	RecordNeighborFeedback(ctx context.Context, input RecordNeighborFeedbackInput) (NeighborFeedbackOutput, error)
 	Update(ctx context.Context, input UpdateInput) (Output, error)
 	Delete(ctx context.Context, id int64) error
 }

@@ -83,6 +83,8 @@ La estructura ya soporta crecimiento funcional sin rehacer la base:
 - generacion automatica de embedding semantico local
 - endpoint de vecinos cercanos:
   - `GET /products/{id}/neighbors`
+- captura de feedback operativo sobre sugerencias semanticas:
+  - `POST /products/{id}/neighbors/{neighbor_id}/feedback`
 
 ### Inventario
 
@@ -158,6 +160,7 @@ La base ya contempla piezas propias de un sistema transaccional:
 - `companies`
 - `branches`
 - `products`
+- `product_neighbor_feedback`
 - `branch_inventory`
 - `sales`
 - `sale_items`
@@ -186,6 +189,7 @@ Las sucursales incluyen ademas informacion operativa y geografica como:
 - `GET /products`
 - `GET /products/{id}`
 - `GET /products/{id}/neighbors`
+- `POST /products/{id}/neighbors/{neighbor_id}/feedback`
 - `POST /sales`
 - `GET /sales`
 - `GET /sales/{id}`

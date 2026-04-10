@@ -116,6 +116,58 @@ func (h *Handler) FindNeighbors(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (h *Handler) RecordNeighborFeedback(w http.ResponseWriter, r *http.Request) {
+	if err := requireJSONContentType(r); err != nil {
+		writeProblem(w, r, http.StatusUnsupportedMediaType, "Unsupported Media Type", err.Error(), nil)
+		return
+	}
+
+	sourceProductID, err := parseIDParam(r)
+	if err != nil {
+		writeProblem(w, r, http.StatusBadRequest, "Invalid Identifier", "id must be a valid integer", nil)
+		return
+	}
+
+	suggestedProductID, err := parseNeighborIDParam(r)
+	if err != nil {
+		writeProblem(w, r, http.StatusBadRequest, "Invalid Identifier", "neighbor_id must be a valid integer", nil)
+		return
+	}
+
+	authenticatedUser, ok := authhttp.AuthenticatedUserFromContext(r.Context())
+	if !ok {
+		writeProblem(w, r, http.StatusUnauthorized, "Unauthorized", "missing or invalid bearer token", nil)
+		return
+	}
+
+	sourceProduct, err := h.useCase.GetByID(r.Context(), sourceProductID)
+	if err != nil {
+		writeApplicationError(w, r, err)
+		return
+	}
+	if err := authhttp.EnsureCompanyAccess(r.Context(), sourceProduct.CompanyID); err != nil {
+		writeProblem(w, r, http.StatusForbidden, "Forbidden", "you cannot access resources outside your company", nil)
+		return
+	}
+
+	var request neighborFeedbackRequest
+	if err := decodeJSONBody(r, &request); err != nil {
+		writeProblem(w, r, http.StatusBadRequest, "Invalid Request Body", err.Error(), nil)
+		return
+	}
+
+	output, err := h.useCase.RecordNeighborFeedback(
+		r.Context(),
+		toNeighborFeedbackInput(sourceProductID, suggestedProductID, authenticatedUser.ID, request),
+	)
+	if err != nil {
+		writeApplicationError(w, r, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, neighborFeedbackResourceResponse{Data: toNeighborFeedbackResponse(output)})
+}
+
 func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	if err := requireJSONContentType(r); err != nil {
 		writeProblem(w, r, http.StatusUnsupportedMediaType, "Unsupported Media Type", err.Error(), nil)
@@ -174,4 +226,8 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 
 func parseIDParam(r *http.Request) (int64, error) {
 	return strconv.ParseInt(mux.Vars(r)["id"], 10, 64)
+}
+
+func parseNeighborIDParam(r *http.Request) (int64, error) {
+	return strconv.ParseInt(mux.Vars(r)["neighbor_id"], 10, 64)
 }

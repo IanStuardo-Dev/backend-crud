@@ -228,6 +228,95 @@ func TestRepositoryFindNeighborsReturnsRankedNeighbors(t *testing.T) {
 	assertMockExpectations(t, mock)
 }
 
+func TestRepositorySaveNeighborFeedbackUpsertsFeedback(t *testing.T) {
+	db, mock := newMockDB(t)
+	defer db.Close()
+
+	repo := NewRepository(db)
+	now := time.Now().UTC()
+
+	mock.ExpectQuery(regexp.QuoteMeta(`INSERT INTO product_neighbor_feedback (
+			company_id,
+			branch_id,
+			source_product_id,
+			suggested_product_id,
+			user_id,
+			action,
+			note,
+			created_at,
+			updated_at
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,NOW(),NOW())
+		ON CONFLICT (company_id, branch_id, user_id, source_product_id, suggested_product_id)
+		DO UPDATE SET
+			action = EXCLUDED.action,
+			note = EXCLUDED.note,
+			updated_at = NOW()
+		RETURNING source_product_id, suggested_product_id, company_id, branch_id, user_id, action, note, created_at, updated_at`)).
+		WithArgs(int64(1), int64(1), int64(10), int64(12), int64(7), "accepted", "cliente acepto sugerencia").
+		WillReturnRows(sqlmock.NewRows([]string{
+			"source_product_id", "suggested_product_id", "company_id", "branch_id", "user_id", "action", "note", "created_at", "updated_at",
+		}).AddRow(10, 12, 1, 1, 7, "accepted", "cliente acepto sugerencia", now, now))
+
+	output, err := repo.SaveNeighborFeedback(context.Background(), productapp.RecordNeighborFeedbackInput{
+		CompanyID:          1,
+		BranchID:           1,
+		SourceProductID:    10,
+		SuggestedProductID: 12,
+		UserID:             7,
+		Action:             "accepted",
+		Note:               "cliente acepto sugerencia",
+	})
+	if err != nil {
+		t.Fatalf("SaveNeighborFeedback() error = %v", err)
+	}
+	if output.SourceProductID != 10 || output.SuggestedProductID != 12 || output.Action != "accepted" {
+		t.Fatalf("unexpected output %#v", output)
+	}
+
+	assertMockExpectations(t, mock)
+}
+
+func TestRepositorySaveNeighborFeedbackReturnsInvalidReferenceOnForeignKeyViolation(t *testing.T) {
+	db, mock := newMockDB(t)
+	defer db.Close()
+
+	repo := NewRepository(db)
+
+	mock.ExpectQuery(regexp.QuoteMeta(`INSERT INTO product_neighbor_feedback (
+			company_id,
+			branch_id,
+			source_product_id,
+			suggested_product_id,
+			user_id,
+			action,
+			note,
+			created_at,
+			updated_at
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,NOW(),NOW())
+		ON CONFLICT (company_id, branch_id, user_id, source_product_id, suggested_product_id)
+		DO UPDATE SET
+			action = EXCLUDED.action,
+			note = EXCLUDED.note,
+			updated_at = NOW()
+		RETURNING source_product_id, suggested_product_id, company_id, branch_id, user_id, action, note, created_at, updated_at`)).
+		WithArgs(int64(1), int64(1), int64(10), int64(12), int64(7), "accepted", "").
+		WillReturnError(&pq.Error{Code: "23503"})
+
+	_, err := repo.SaveNeighborFeedback(context.Background(), productapp.RecordNeighborFeedbackInput{
+		CompanyID:          1,
+		BranchID:           1,
+		SourceProductID:    10,
+		SuggestedProductID: 12,
+		UserID:             7,
+		Action:             "accepted",
+	})
+	if !errors.Is(err, productapp.ErrInvalidReference) {
+		t.Fatalf("expected ErrInvalidReference, got %v", err)
+	}
+
+	assertMockExpectations(t, mock)
+}
+
 func TestRepositoryUpdateReturnsNotFoundWhenMissing(t *testing.T) {
 	db, mock := newMockDB(t)
 	defer db.Close()
