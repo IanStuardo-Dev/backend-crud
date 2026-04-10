@@ -10,6 +10,7 @@ func TestNormalizeProvider(t *testing.T) {
 	}{
 		{name: "defaults to hash", input: "", want: "local-hash"},
 		{name: "normalizes semantic", input: "semantic-http", want: "local-semantic-service"},
+		{name: "normalizes grpc", input: "semantic-grpc", want: "local-semantic-service"},
 		{name: "normalizes local semantic", input: "local-semantic", want: "local-semantic-service"},
 		{name: "normalizes disabled", input: "disabled", want: "none"},
 	}

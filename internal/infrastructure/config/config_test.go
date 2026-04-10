@@ -52,3 +52,11 @@ func TestGetEmbeddingRequestTimeoutFallsBackToDefault(t *testing.T) {
 		t.Fatalf("expected 15s default timeout, got %v", timeout)
 	}
 }
+
+func TestGetEmbeddingGRPCTargetDefaultsToLocalhost(t *testing.T) {
+	t.Setenv("EMBEDDING_GRPC_TARGET", "")
+
+	if target := GetEmbeddingGRPCTarget(); target != "localhost:50051" {
+		t.Fatalf("expected localhost:50051 target, got %q", target)
+	}
+}

@@ -30,7 +30,7 @@ HTTP Product Handler
 -> Product Use Case
 -> Embedder port
 -> Infrastructure provider selection
--> HTTP semantic embedder adapter
+-> gRPC semantic embedder adapter
 -> Local embedding-service
 -> FastEmbed / ONNX
 -> Local multilingual model
@@ -46,36 +46,54 @@ La implementacion local usa:
 - runtime: `FastEmbed`
 - modelo: `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`
 - inferencia: CPU local
+- transporte backend -> embedding-service: `gRPC`
 - despliegue: `docker compose`
 
 Archivo principal:
 
 - `services/embedding-service/app.py`
 
-### Endpoint interno
+### Contrato interno
 
-```http
-POST /embed
+```proto
+rpc Embed(EmbedRequest) returns (EmbedResponse);
 ```
 
-Body:
+Request:
 
-```json
-{
-  "text": "Cafe Dolca instantaneo 170g"
+```proto
+message EmbedRequest {
+  string text = 1;
 }
 ```
 
-Respuesta:
+Response:
 
-```json
-{
-  "embedding": [0.0123, -0.0171, 0.0044],
-  "dimensions": 1536,
-  "base_dimensions": 384,
-  "model": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+```proto
+message EmbedResponse {
+  repeated float embedding = 1;
+  int32 dimensions = 2;
+  int32 base_dimensions = 3;
+  string model = 4;
 }
 ```
+
+> [!NOTE]
+> El servicio mantiene `GET /health` y `POST /embed` por HTTP para observabilidad y compatibilidad local, pero la API Go ya consume embeddings por `gRPC`.
+
+### Regeneracion de stubs
+
+El contrato fuente vive en:
+
+- `proto/embedding/v1/embedding.proto`
+
+Los stubs Go y Python se versionan en el repositorio. Si el contrato cambia, debes regenerarlos con:
+
+```sh
+make proto
+```
+
+El target usa versiones pinneadas de `protoc-gen-go`, `protoc-gen-go-grpc` y `grpcio-tools` para evitar drift entre entornos.
 
 ## Normalizacion previa
 
@@ -129,7 +147,7 @@ Eso permite:
 Variables relevantes:
 
 - `EMBEDDING_PROVIDER`
-- `EMBEDDING_SERVICE_URL`
+- `EMBEDDING_GRPC_TARGET`
 - `EMBEDDING_REQUEST_TIMEOUT`
 
 Valores esperados hoy:
@@ -176,7 +194,7 @@ curl http://localhost:8000/health
 
 ```sh
 EMBEDDING_PROVIDER=local-semantic-service \
-EMBEDDING_SERVICE_URL=http://localhost:8000 \
+EMBEDDING_GRPC_TARGET=localhost:50051 \
 EMBEDDING_REQUEST_TIMEOUT=45s \
 go run ./cmd/seed
 ```
