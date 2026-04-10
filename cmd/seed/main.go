@@ -19,6 +19,9 @@ func main() {
 	defer sqlDB.Close()
 
 	embedder, embeddingProviderName := embeddingprovider.NewProductEmbedder()
+	if closer, ok := embedder.(interface{ Close() error }); ok {
+		defer closer.Close()
+	}
 	log.Printf("seed embedding provider: %s", embeddingProviderName)
 
 	if err := seeds.Run(context.Background(), sqlDB, embedder); err != nil {

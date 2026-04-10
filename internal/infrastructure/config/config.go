@@ -67,9 +67,9 @@ func GetEmbeddingProvider() string {
 	return getenvDefault("EMBEDDING_PROVIDER", "local-hash")
 }
 
-func GetEmbeddingServiceURL() string {
+func GetEmbeddingGRPCTarget() string {
 	LoadEnv()
-	return getenvDefault("EMBEDDING_SERVICE_URL", "http://localhost:8000")
+	return getenvDefault("EMBEDDING_GRPC_TARGET", "localhost:50051")
 }
 
 func GetEmbeddingRequestTimeout() time.Duration {
