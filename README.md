@@ -146,7 +146,7 @@ En esta etapa se privilegio independencia operativa:
 - posibilidad de correr toda la pila en Docker Compose
 - separacion clara entre backend transaccional e inferencia semantica
 
-La implementacion actual usa un servicio local basado en `FastEmbed` y el modelo `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`, expuesto en la misma red del proyecto. El servicio genera embeddings semanticos y los adapta a `1536` dimensiones para mantener compatibilidad con el esquema actual de `pgvector`.
+La implementacion actual usa un servicio local basado en `FastEmbed` y el modelo `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`, expuesto en la misma red del proyecto. La inferencia se consume desde la API Go via `gRPC`, mientras el servicio mantiene un endpoint HTTP de salud para operacion y Docker healthchecks. El servicio genera embeddings semanticos y los adapta a `1536` dimensiones para mantener compatibilidad con el esquema actual de `pgvector`.
 
 Antes de generar el embedding, el texto pasa por una normalizacion local orientada al dominio: lowercase, eliminacion de tildes, unificacion de unidades y alias utiles como `coffee -> cafe`.
 
@@ -251,7 +251,7 @@ export JWT_SECRET=dev-secret-change-me
 export JWT_ISSUER=crud-api
 export JWT_TTL=24h
 export EMBEDDING_PROVIDER=local-semantic-service
-export EMBEDDING_SERVICE_URL=http://localhost:8000
+export EMBEDDING_GRPC_TARGET=localhost:50051
 export EMBEDDING_REQUEST_TIMEOUT=45s
 ```
 
@@ -264,6 +264,20 @@ export DATABASE_URL='postgres://postgres:postgres@localhost:5432/go-crud?sslmode
 Si existe un `.env`, la aplicacion intenta cargarlo automaticamente.
 
 Si ejecutas la API fuera de Compose, el proveedor por defecto sigue siendo `local-hash`. Para usar el servicio semantico local debes definir `EMBEDDING_PROVIDER=local-semantic-service`.
+
+### 2.1 Contrato gRPC
+
+El contrato entre la API Go y el `embedding-service` vive en:
+
+- `proto/embedding/v1/embedding.proto`
+
+Los stubs generados se versionan en el repo para Go y Python. Si cambias el `.proto`, regeneralos con:
+
+```sh
+make proto
+```
+
+Ese comando instala generadores versionados en una carpeta temporal y vuelve a crear los archivos generados de ambos servicios.
 
 ### 3. Migraciones
 
@@ -287,7 +301,7 @@ Si quieres que los productos seed usen el proveedor semantico local, ejecuta el 
 
 ```sh
 EMBEDDING_PROVIDER=local-semantic-service \
-EMBEDDING_SERVICE_URL=http://localhost:8000 \
+EMBEDDING_GRPC_TARGET=localhost:50051 \
 EMBEDDING_REQUEST_TIMEOUT=45s \
 go run ./cmd/seed
 ```

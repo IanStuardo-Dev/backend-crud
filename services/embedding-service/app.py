@@ -1,18 +1,12 @@
-import os
-from functools import lru_cache
-from typing import Any, List
+from typing import List
 
-import numpy as np
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
-from text_normalization import normalize_text, to_passage_text
-
-
-MODEL_NAME = os.getenv("EMBEDDING_MODEL", "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
-TARGET_DIMENSIONS = int(os.getenv("EMBEDDING_TARGET_DIMENSIONS", "1536"))
-DEVICE = os.getenv("EMBEDDING_DEVICE", "cpu")
+from embedding_runtime import DEVICE, MODEL_NAME, TARGET_DIMENSIONS, embed_text, get_base_dimensions, get_model
+from grpc_service import start_grpc_server
 
 app = FastAPI(title="local-semantic-embedding-service", version="1.0.0")
+grpc_server = None
 
 
 class EmbedRequest(BaseModel):
@@ -34,32 +28,20 @@ class HealthResponse(BaseModel):
     base_dimensions: int
 
 
-@lru_cache
-def get_model() -> Any:
-    from fastembed import TextEmbedding
+@app.on_event("startup")
+def startup() -> None:
+    global grpc_server
 
-    return TextEmbedding(model_name=MODEL_NAME)
-
-def pad_embedding(values: np.ndarray, target_dimensions: int) -> List[float]:
-    embedding = values.astype(np.float32).tolist()
-
-    if target_dimensions <= 0:
-        return embedding
-    if len(embedding) > target_dimensions:
-        raise HTTPException(
-            status_code=500,
-            detail=f"model output dimensions {len(embedding)} exceed target dimensions {target_dimensions}",
-        )
-    if len(embedding) < target_dimensions:
-        embedding.extend([0.0] * (target_dimensions - len(embedding)))
-
-    return embedding
+    get_model()
+    grpc_server = start_grpc_server()
 
 
-def get_base_dimensions() -> int:
-    model = get_model()
-    sample = next(model.embed(["passage: dimension probe"]))
-    return int(sample.shape[0])
+@app.on_event("shutdown")
+def shutdown() -> None:
+    if grpc_server is None:
+        return
+
+    grpc_server.stop(5).wait(5)
 
 
 @app.get("/health", response_model=HealthResponse)
@@ -78,17 +60,16 @@ def health() -> HealthResponse:
 
 @app.post("/embed", response_model=EmbedResponse)
 def embed(request: EmbedRequest) -> EmbedResponse:
-    normalized = normalize_text(request.text)
-    if not normalized:
-        raise HTTPException(status_code=422, detail="text must not be empty")
-
-    model = get_model()
-    embedding = next(model.embed([to_passage_text(normalized)]))
-    padded = pad_embedding(embedding, TARGET_DIMENSIONS)
+    try:
+        result = embed_text(request.text)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     return EmbedResponse(
-        embedding=padded,
-        dimensions=len(padded),
-        base_dimensions=get_base_dimensions(),
-        model=MODEL_NAME,
+        embedding=result.embedding,
+        dimensions=result.dimensions,
+        base_dimensions=result.base_dimensions,
+        model=result.model,
     )

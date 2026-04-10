@@ -44,6 +44,10 @@ Incluye:
 > [!IMPORTANT]
 > Si necesitas que los productos seed usen embeddings semanticos reales, corre de nuevo los seeds con `EMBEDDING_PROVIDER=local-semantic-service`.
 
+Si ejecutas la API o el seeder fuera de `docker compose`, recuerda agregar tambien:
+
+- `EMBEDDING_GRPC_TARGET=localhost:50051`
+
 ## Ruta rapida con Postman
 
 La coleccion ya incluye una carpeta:
@@ -135,10 +139,10 @@ jq empty postman/backend-crud.postman_collection.json
 go test ./...
 ```
 
-### Tests del servicio de normalizacion
+### Tests del servicio de embeddings local
 
 ```sh
-python3 -m unittest services/embedding-service/test_app.py
+python3 -m unittest services/embedding-service/test_app.py services/embedding-service/test_runtime.py
 ```
 
 ## Riesgos conocidos

@@ -1,6 +1,6 @@
 SHELL := /usr/bin/env bash
 
-.PHONY: migrate-up migrate-down migrate-version test test-pretty test-install-pretty
+.PHONY: migrate-up migrate-down migrate-version proto test test-pretty test-install-pretty
 
 GOCACHE := $(CURDIR)/.gocache
 
@@ -12,6 +12,9 @@ migrate-down:
 
 migrate-version:
 	@go run ./cmd/migrate version
+
+proto:
+	@./scripts/generate-proto.sh
 
 test:
 	@GOCACHE="$(GOCACHE)" go test -v ./...

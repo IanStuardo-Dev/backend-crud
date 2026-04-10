@@ -56,6 +56,9 @@ func main() {
 	inventoryHandler := inventoryhttp.NewHandler(inventoryUseCase)
 	productRepo := postgresproduct.NewRepository(sqlDB)
 	productEmbedder, embeddingProviderName := embeddingprovider.NewProductEmbedder()
+	if closer, ok := productEmbedder.(interface{ Close() error }); ok {
+		defer closer.Close()
+	}
 	log.Printf("product embedding provider: %s", embeddingProviderName)
 	productUseCase := productapp.NewUseCase(productRepo, productEmbedder)
 	productHandler := producthttp.NewHandler(productUseCase)
