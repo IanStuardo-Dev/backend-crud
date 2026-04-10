@@ -10,12 +10,13 @@ import (
 )
 
 type stubRepository struct {
-	createFn        func(context.Context, *domainproduct.Product) error
-	listFn          func(context.Context) ([]domainproduct.Product, error)
-	getByIDFn       func(context.Context, int64) (*domainproduct.Product, error)
-	findNeighborsFn func(context.Context, int64, int64, int, float64) ([]NeighborOutput, error)
-	updateFn        func(context.Context, *domainproduct.Product) error
-	deleteFn        func(context.Context, int64) error
+	createFn               func(context.Context, *domainproduct.Product) error
+	listFn                 func(context.Context) ([]domainproduct.Product, error)
+	getByIDFn              func(context.Context, int64) (*domainproduct.Product, error)
+	findNeighborsFn        func(context.Context, int64, int64, int, float64) ([]NeighborOutput, error)
+	saveNeighborFeedbackFn func(context.Context, RecordNeighborFeedbackInput) (NeighborFeedbackOutput, error)
+	updateFn               func(context.Context, *domainproduct.Product) error
+	deleteFn               func(context.Context, int64) error
 }
 
 func (s stubRepository) Create(ctx context.Context, product *domainproduct.Product) error {
@@ -48,6 +49,14 @@ func (s stubRepository) FindNeighbors(ctx context.Context, sourceProductID, comp
 	}
 
 	return nil, nil
+}
+
+func (s stubRepository) SaveNeighborFeedback(ctx context.Context, input RecordNeighborFeedbackInput) (NeighborFeedbackOutput, error) {
+	if s.saveNeighborFeedbackFn != nil {
+		return s.saveNeighborFeedbackFn(ctx, input)
+	}
+
+	return NeighborFeedbackOutput{}, nil
 }
 
 func (s stubRepository) Update(ctx context.Context, product *domainproduct.Product) error {
@@ -163,6 +172,141 @@ func TestUseCaseGetByIDReturnsNotFound(t *testing.T) {
 	_, err := useCase.GetByID(context.Background(), 10)
 	if !errors.Is(err, ErrNotFound) {
 		t.Fatalf("expected ErrNotFound, got %v", err)
+	}
+}
+
+func TestUseCaseRecordNeighborFeedbackNormalizesAndStores(t *testing.T) {
+	now := time.Now().UTC()
+	products := map[int64]domainproduct.Product{
+		11: {
+			ID:        11,
+			CompanyID: 3,
+			BranchID:  9,
+			SKU:       "SKU-011",
+			Name:      "Cafe Clasico",
+			Category:  "abarrotes",
+			Currency:  "CLP",
+			Embedding: makeEmbedding(),
+		},
+		18: {
+			ID:        18,
+			CompanyID: 3,
+			BranchID:  9,
+			SKU:       "SKU-018",
+			Name:      "Cafe Premium",
+			Category:  "abarrotes",
+			Currency:  "CLP",
+			Embedding: makeEmbedding(),
+		},
+	}
+
+	var savedInput RecordNeighborFeedbackInput
+	useCase := NewUseCase(stubRepository{
+		getByIDFn: func(_ context.Context, id int64) (*domainproduct.Product, error) {
+			product, ok := products[id]
+			if !ok {
+				return nil, nil
+			}
+			productCopy := product
+			return &productCopy, nil
+		},
+		saveNeighborFeedbackFn: func(_ context.Context, input RecordNeighborFeedbackInput) (NeighborFeedbackOutput, error) {
+			savedInput = input
+			return NeighborFeedbackOutput{
+				SourceProductID:    input.SourceProductID,
+				SuggestedProductID: input.SuggestedProductID,
+				CompanyID:          input.CompanyID,
+				BranchID:           input.BranchID,
+				UserID:             input.UserID,
+				Action:             input.Action,
+				Note:               input.Note,
+				CreatedAt:          now,
+				UpdatedAt:          now,
+			}, nil
+		},
+	}, nil)
+
+	output, err := useCase.RecordNeighborFeedback(context.Background(), RecordNeighborFeedbackInput{
+		SourceProductID:    11,
+		SuggestedProductID: 18,
+		BranchID:           9,
+		UserID:             77,
+		Action:             " Accepted ",
+		Note:               "  mejor reemplazo para caja rapida  ",
+	})
+	if err != nil {
+		t.Fatalf("RecordNeighborFeedback() error = %v", err)
+	}
+
+	if savedInput.CompanyID != 3 {
+		t.Fatalf("expected company_id 3, got %d", savedInput.CompanyID)
+	}
+	if savedInput.Action != "accepted" {
+		t.Fatalf("expected normalized action, got %q", savedInput.Action)
+	}
+	if savedInput.Note != "mejor reemplazo para caja rapida" {
+		t.Fatalf("expected trimmed note, got %q", savedInput.Note)
+	}
+	if output.CompanyID != 3 || output.CreatedAt != now || output.UpdatedAt != now {
+		t.Fatalf("unexpected output %#v", output)
+	}
+}
+
+func TestUseCaseRecordNeighborFeedbackRejectsProductsFromDifferentCompanies(t *testing.T) {
+	useCase := NewUseCase(stubRepository{
+		getByIDFn: func(_ context.Context, id int64) (*domainproduct.Product, error) {
+			switch id {
+			case 11:
+				return &domainproduct.Product{ID: 11, CompanyID: 1, BranchID: 1, SKU: "SKU-011", Name: "Producto A", Category: "office", Currency: "USD"}, nil
+			case 18:
+				return &domainproduct.Product{ID: 18, CompanyID: 2, BranchID: 2, SKU: "SKU-018", Name: "Producto B", Category: "office", Currency: "USD"}, nil
+			default:
+				return nil, nil
+			}
+		},
+	}, nil)
+
+	_, err := useCase.RecordNeighborFeedback(context.Background(), RecordNeighborFeedbackInput{
+		SourceProductID:    11,
+		SuggestedProductID: 18,
+		BranchID:           1,
+		UserID:             7,
+		Action:             "accepted",
+	})
+	if !errors.Is(err, ErrInvalidReference) {
+		t.Fatalf("expected ErrInvalidReference, got %v", err)
+	}
+}
+
+func TestUseCaseRecordNeighborFeedbackRejectsInvalidAction(t *testing.T) {
+	called := false
+	useCase := NewUseCase(stubRepository{
+		getByIDFn: func(_ context.Context, id int64) (*domainproduct.Product, error) {
+			return &domainproduct.Product{ID: id, CompanyID: 1, BranchID: 1, SKU: "SKU-001", Name: "Producto", Category: "office", Currency: "USD"}, nil
+		},
+		saveNeighborFeedbackFn: func(context.Context, RecordNeighborFeedbackInput) (NeighborFeedbackOutput, error) {
+			called = true
+			return NeighborFeedbackOutput{}, nil
+		},
+	}, nil)
+
+	_, err := useCase.RecordNeighborFeedback(context.Background(), RecordNeighborFeedbackInput{
+		SourceProductID:    1,
+		SuggestedProductID: 2,
+		BranchID:           1,
+		UserID:             7,
+		Action:             "maybe",
+	})
+
+	var validationErr domainproduct.ValidationError
+	if !errors.As(err, &validationErr) {
+		t.Fatalf("expected validation error, got %v", err)
+	}
+	if validationErr.Field != "action" {
+		t.Fatalf("expected action validation, got %q", validationErr.Field)
+	}
+	if called {
+		t.Fatal("expected repository SaveNeighborFeedback not to be called on invalid action")
 	}
 }
 

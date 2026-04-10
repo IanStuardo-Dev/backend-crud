@@ -108,6 +108,30 @@ func toNeighborResponses(outputs []productapp.NeighborOutput) []neighborResponse
 	return responses
 }
 
+func toNeighborFeedbackInput(sourceProductID, suggestedProductID, userID int64, request neighborFeedbackRequest) productapp.RecordNeighborFeedbackInput {
+	return productapp.RecordNeighborFeedbackInput{
+		SourceProductID:    sourceProductID,
+		SuggestedProductID: suggestedProductID,
+		BranchID:           request.BranchID,
+		UserID:             userID,
+		Action:             request.Action,
+		Note:               request.Note,
+	}
+}
+
+func toNeighborFeedbackResponse(output productapp.NeighborFeedbackOutput) neighborFeedbackResponse {
+	return neighborFeedbackResponse{
+		SourceProductID:    output.SourceProductID,
+		SuggestedProductID: output.SuggestedProductID,
+		BranchID:           output.BranchID,
+		UserID:             output.UserID,
+		Action:             output.Action,
+		Note:               output.Note,
+		CreatedAt:          output.CreatedAt,
+		UpdatedAt:          output.UpdatedAt,
+	}
+}
+
 func cloneEmbedding(embedding []float32) []float32 {
 	if len(embedding) == 0 {
 		return nil

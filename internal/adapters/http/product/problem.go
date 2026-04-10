@@ -46,6 +46,8 @@ func writeApplicationError(w http.ResponseWriter, r *http.Request, err error) {
 		writeProblem(w, r, http.StatusServiceUnavailable, "Service Unavailable", "product embedding provider is not configured", nil)
 	case errors.Is(err, productapp.ErrEmbeddingGeneration):
 		writeProblem(w, r, http.StatusBadGateway, "Bad Gateway", "product embedding could not be generated", nil)
+	case errors.Is(err, productapp.ErrUnauthorizedFeedback):
+		writeProblem(w, r, http.StatusUnauthorized, "Unauthorized", "missing or invalid bearer token", nil)
 	default:
 		writeProblem(w, r, http.StatusInternalServerError, "Internal Server Error", "an unexpected error occurred", nil)
 	}

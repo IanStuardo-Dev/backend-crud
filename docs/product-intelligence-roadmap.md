@@ -186,6 +186,21 @@ Datos sugeridos:
 - accion tomada
 - timestamp
 
+Estado actual:
+
+- existe una primera captura operativa via `POST /products/{id}/neighbors/{neighbor_id}/feedback`
+- acciones soportadas:
+  - `accepted`
+  - `rejected`
+  - `ignored`
+- la persistencia permite actualizar feedback del mismo usuario para la misma sugerencia en la misma sucursal
+
+Lo pendiente para convertir esto en inteligencia util:
+
+- agregar lectura agregada por producto y por sucursal
+- usar tasas de aceptacion y rechazo dentro del score hibrido
+- distinguir mejor entre `ignored` real y ausencia de interaccion
+
 ## Fase 2: Soporte a la Decision
 
 ### 4. Sustitucion inteligente de productos

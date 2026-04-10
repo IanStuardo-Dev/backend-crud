@@ -132,6 +132,66 @@ func (uc *useCase) FindNeighbors(ctx context.Context, input FindNeighborsInput) 
 	}, nil
 }
 
+func (uc *useCase) RecordNeighborFeedback(ctx context.Context, input RecordNeighborFeedbackInput) (NeighborFeedbackOutput, error) {
+	if err := validateID(input.SourceProductID); err != nil {
+		return NeighborFeedbackOutput{}, err
+	}
+	if err := validateNeighborFeedbackID("suggested_product_id", input.SuggestedProductID); err != nil {
+		return NeighborFeedbackOutput{}, err
+	}
+	if err := validateNeighborFeedbackID("branch_id", input.BranchID); err != nil {
+		return NeighborFeedbackOutput{}, err
+	}
+	if err := validateNeighborFeedbackID("user_id", input.UserID); err != nil {
+		return NeighborFeedbackOutput{}, err
+	}
+	if input.SourceProductID == input.SuggestedProductID {
+		return NeighborFeedbackOutput{}, domainproduct.ValidationError{
+			Field:   "suggested_product_id",
+			Message: "suggested_product_id must be different from the source product",
+		}
+	}
+
+	action, err := normalizeNeighborFeedbackAction(input.Action)
+	if err != nil {
+		return NeighborFeedbackOutput{}, err
+	}
+
+	note, err := normalizeNeighborFeedbackNote(input.Note)
+	if err != nil {
+		return NeighborFeedbackOutput{}, err
+	}
+
+	sourceProduct, err := uc.repo.GetByID(ctx, input.SourceProductID)
+	if err != nil {
+		return NeighborFeedbackOutput{}, err
+	}
+	if sourceProduct == nil {
+		return NeighborFeedbackOutput{}, ErrNotFound
+	}
+
+	suggestedProduct, err := uc.repo.GetByID(ctx, input.SuggestedProductID)
+	if err != nil {
+		return NeighborFeedbackOutput{}, err
+	}
+	if suggestedProduct == nil {
+		return NeighborFeedbackOutput{}, ErrNotFound
+	}
+	if sourceProduct.CompanyID != suggestedProduct.CompanyID {
+		return NeighborFeedbackOutput{}, ErrInvalidReference
+	}
+
+	return uc.repo.SaveNeighborFeedback(ctx, RecordNeighborFeedbackInput{
+		SourceProductID:    input.SourceProductID,
+		SuggestedProductID: input.SuggestedProductID,
+		CompanyID:          sourceProduct.CompanyID,
+		BranchID:           input.BranchID,
+		UserID:             input.UserID,
+		Action:             action,
+		Note:               note,
+	})
+}
+
 func (uc *useCase) Update(ctx context.Context, input UpdateInput) (Output, error) {
 	if err := validateID(input.ID); err != nil {
 		return Output{}, err
@@ -244,6 +304,39 @@ func validateMinSimilarity(minSimilarity float64) error {
 	}
 
 	return nil
+}
+
+func validateNeighborFeedbackID(field string, id int64) error {
+	if id <= 0 {
+		return domainproduct.ValidationError{Field: field, Message: field + " must be greater than 0"}
+	}
+
+	return nil
+}
+
+func normalizeNeighborFeedbackAction(value string) (string, error) {
+	action := strings.ToLower(strings.TrimSpace(value))
+	switch action {
+	case "accepted", "rejected", "ignored":
+		return action, nil
+	default:
+		return "", domainproduct.ValidationError{
+			Field:   "action",
+			Message: "action must be one of accepted, rejected, or ignored",
+		}
+	}
+}
+
+func normalizeNeighborFeedbackNote(value string) (string, error) {
+	note := strings.TrimSpace(value)
+	if len(note) > 1000 {
+		return "", domainproduct.ValidationError{
+			Field:   "note",
+			Message: "note must be less than or equal to 1000 characters",
+		}
+	}
+
+	return note, nil
 }
 
 type productTextSource struct {

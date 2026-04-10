@@ -14,6 +14,7 @@ func RegisterReadRoutes(r *mux.Router, handler *Handler) {
 	r.HandleFunc("/products", handler.List).Methods(http.MethodGet)
 	r.HandleFunc("/products/{id:[0-9]+}", handler.GetByID).Methods(http.MethodGet)
 	r.HandleFunc("/products/{id:[0-9]+}/neighbors", handler.FindNeighbors).Methods(http.MethodGet)
+	r.HandleFunc("/products/{id:[0-9]+}/neighbors/{neighbor_id:[0-9]+}/feedback", handler.RecordNeighborFeedback).Methods(http.MethodPost)
 }
 
 func RegisterWriteRoutes(r *mux.Router, handler *Handler) {

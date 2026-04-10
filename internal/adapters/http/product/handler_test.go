@@ -8,25 +8,30 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	authhttp "github.com/IanStuardo-Dev/backend-crud/internal/adapters/http/auth"
 	producthttp "github.com/IanStuardo-Dev/backend-crud/internal/adapters/http/product"
+	authapp "github.com/IanStuardo-Dev/backend-crud/internal/application/auth"
 	productapp "github.com/IanStuardo-Dev/backend-crud/internal/application/product"
 	domainproduct "github.com/IanStuardo-Dev/backend-crud/internal/domain/product"
 	"github.com/IanStuardo-Dev/backend-crud/internal/infrastructure/http/router"
 )
 
 type memoryProductRepository struct {
-	nextID   int64
-	products map[int64]domainproduct.Product
+	nextID    int64
+	products  map[int64]domainproduct.Product
+	feedbacks map[string]productapp.NeighborFeedbackOutput
 }
 
 func newMemoryProductRepository() *memoryProductRepository {
 	return &memoryProductRepository{
-		nextID:   1,
-		products: make(map[int64]domainproduct.Product),
+		nextID:    1,
+		products:  make(map[int64]domainproduct.Product),
+		feedbacks: make(map[string]productapp.NeighborFeedbackOutput),
 	}
 }
 
@@ -107,6 +112,33 @@ func (r *memoryProductRepository) FindNeighbors(_ context.Context, sourceProduct
 	}
 
 	return neighbors[:limit], nil
+}
+
+func (r *memoryProductRepository) SaveNeighborFeedback(_ context.Context, input productapp.RecordNeighborFeedbackInput) (productapp.NeighborFeedbackOutput, error) {
+	if _, ok := r.products[input.SourceProductID]; !ok {
+		return productapp.NeighborFeedbackOutput{}, productapp.ErrInvalidReference
+	}
+	if _, ok := r.products[input.SuggestedProductID]; !ok {
+		return productapp.NeighborFeedbackOutput{}, productapp.ErrInvalidReference
+	}
+
+	key := feedbackKey(input.CompanyID, input.BranchID, input.UserID, input.SourceProductID, input.SuggestedProductID)
+	now := time.Now().UTC().Round(0)
+	saved, exists := r.feedbacks[key]
+	if !exists {
+		saved.CreatedAt = now
+	}
+	saved.SourceProductID = input.SourceProductID
+	saved.SuggestedProductID = input.SuggestedProductID
+	saved.CompanyID = input.CompanyID
+	saved.BranchID = input.BranchID
+	saved.UserID = input.UserID
+	saved.Action = input.Action
+	saved.Note = input.Note
+	saved.UpdatedAt = now
+	r.feedbacks[key] = saved
+
+	return saved, nil
 }
 
 func (r *memoryProductRepository) Update(_ context.Context, product *domainproduct.Product) error {
@@ -415,6 +447,117 @@ func TestProductFindNeighborsValidationAndErrors(t *testing.T) {
 	})
 }
 
+func TestProductRecordNeighborFeedbackFlow(t *testing.T) {
+	repo := newMemoryProductRepository()
+	handler := producthttp.NewHandler(productapp.NewUseCase(repo, testProductEmbedder{}))
+	server := router.New(nil, nil, authhttp.NewMiddleware(stubTokenVerifier{}), nil, handler, nil, nil)
+
+	mustSeedProduct(t, repo, domainproduct.Product{CompanyID: 1, BranchID: 1, SKU: "SEED-PRD-001", Name: "Cafe Clasico 170g", Description: "Cafe soluble", Category: "abarrotes", Brand: "Acme", PriceCents: 4990, Currency: "CLP", Stock: 10, Embedding: makeTestEmbedding()})
+	mustSeedProduct(t, repo, domainproduct.Product{CompanyID: 1, BranchID: 1, SKU: "SEED-PRD-002", Name: "Cafe Premium 170g", Description: "Cafe soluble premium", Category: "abarrotes", Brand: "Acme", PriceCents: 5990, Currency: "CLP", Stock: 10, Embedding: makeTestEmbedding()})
+
+	resp := performAuthenticatedRequest(
+		t,
+		server,
+		http.MethodPost,
+		"/products/1/neighbors/2/feedback",
+		`{"branch_id":1,"action":"accepted","note":"cliente acepto el reemplazo"}`,
+	)
+	assertStatus(t, resp, http.StatusOK)
+
+	var body map[string]any
+	decodeBody(t, resp, &body)
+	data := body["data"].(map[string]any)
+	if data["source_product_id"] != float64(1) || data["suggested_product_id"] != float64(2) {
+		t.Fatalf("unexpected product ids %#v", data)
+	}
+	if data["action"] != "accepted" {
+		t.Fatalf("expected action accepted, got %#v", data["action"])
+	}
+	if data["user_id"] != float64(7) || data["branch_id"] != float64(1) {
+		t.Fatalf("unexpected actor data %#v", data)
+	}
+
+	stored := repo.feedbacks[feedbackKey(1, 1, 7, 1, 2)]
+	if stored.Action != "accepted" || stored.Note != "cliente acepto el reemplazo" {
+		t.Fatalf("unexpected stored feedback %#v", stored)
+	}
+}
+
+func TestProductRecordNeighborFeedbackValidationAndErrors(t *testing.T) {
+	repo := newMemoryProductRepository()
+	handler := producthttp.NewHandler(productapp.NewUseCase(repo, testProductEmbedder{}))
+	server := router.New(nil, nil, authhttp.NewMiddleware(stubTokenVerifier{}), nil, handler, nil, nil)
+
+	mustSeedProduct(t, repo, domainproduct.Product{CompanyID: 1, BranchID: 1, SKU: "SEED-PRD-001", Name: "Cafe Clasico 170g", Description: "Cafe soluble", Category: "abarrotes", Brand: "Acme", PriceCents: 4990, Currency: "CLP", Stock: 10, Embedding: makeTestEmbedding()})
+	mustSeedProduct(t, repo, domainproduct.Product{CompanyID: 1, BranchID: 1, SKU: "SEED-PRD-002", Name: "Cafe Premium 170g", Description: "Cafe soluble premium", Category: "abarrotes", Brand: "Acme", PriceCents: 5990, Currency: "CLP", Stock: 10, Embedding: makeTestEmbedding()})
+
+	cases := []struct {
+		name       string
+		body       string
+		setJSONCT  bool
+		setAuth    bool
+		statusCode int
+		wantBody   map[string]any
+	}{
+		{
+			name:       "reject unauthenticated feedback",
+			body:       `{"branch_id":1,"action":"accepted"}`,
+			setJSONCT:  true,
+			setAuth:    false,
+			statusCode: http.StatusUnauthorized,
+			wantBody: map[string]any{
+				"type":   "https://httpstatuses.com/401",
+				"title":  "Unauthorized",
+				"status": float64(401),
+				"detail": "missing or invalid bearer token",
+				"path":   "/products/1/neighbors/2/feedback",
+			},
+		},
+		{
+			name:       "reject invalid action",
+			body:       `{"branch_id":1,"action":"later"}`,
+			setJSONCT:  true,
+			setAuth:    true,
+			statusCode: http.StatusUnprocessableEntity,
+			wantBody: map[string]any{
+				"type":   "https://httpstatuses.com/422",
+				"title":  "Validation Failed",
+				"status": float64(422),
+				"detail": "request validation failed",
+				"path":   "/products/1/neighbors/2/feedback",
+				"errors": []any{
+					map[string]any{
+						"field":  "action",
+						"reason": "action must be one of accepted, rejected, or ignored",
+					},
+				},
+			},
+		},
+		{
+			name:       "reject missing content type",
+			body:       `{"branch_id":1,"action":"accepted"}`,
+			setJSONCT:  false,
+			setAuth:    true,
+			statusCode: http.StatusUnsupportedMediaType,
+			wantBody: map[string]any{
+				"type":   "https://httpstatuses.com/415",
+				"title":  "Unsupported Media Type",
+				"status": float64(415),
+				"detail": "Content-Type must be application/json",
+				"path":   "/products/1/neighbors/2/feedback",
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			resp := performRequestWithJSONAndAuthOption(t, server, http.MethodPost, "/products/1/neighbors/2/feedback", tc.body, tc.setJSONCT, tc.setAuth)
+			assertStatus(t, resp, tc.statusCode)
+			assertProblemResponse(t, resp, tc.wantBody)
+		})
+	}
+}
+
 type failingRepository struct {
 	err error
 }
@@ -438,14 +581,46 @@ func (r failingRepository) GetByID(context.Context, int64) (*domainproduct.Produ
 func (r failingRepository) FindNeighbors(context.Context, int64, int64, int, float64) ([]productapp.NeighborOutput, error) {
 	return nil, r.err
 }
+func (r failingRepository) SaveNeighborFeedback(context.Context, productapp.RecordNeighborFeedbackInput) (productapp.NeighborFeedbackOutput, error) {
+	return productapp.NeighborFeedbackOutput{}, r.err
+}
 func (r failingRepository) Update(context.Context, *domainproduct.Product) error { return r.err }
 func (r failingRepository) Delete(context.Context, int64) error                  { return r.err }
+
+type stubTokenVerifier struct{}
+
+func (stubTokenVerifier) Verify(token string) (authapp.AuthenticatedUser, error) {
+	if token != "valid-token" {
+		return authapp.AuthenticatedUser{}, authapp.ErrUnauthorized
+	}
+
+	return authapp.AuthenticatedUser{
+		ID:        7,
+		CompanyID: int64Pointer(1),
+		Name:      "Operator",
+		Email:     "operator@example.com",
+		Role:      "sales_user",
+		IsActive:  true,
+	}, nil
+}
+
+func int64Pointer(value int64) *int64 {
+	return &value
+}
 
 func mustCreateProduct(t *testing.T, handler http.Handler, body string) {
 	t.Helper()
 
 	resp := performRequest(t, handler, http.MethodPost, "/products", body)
 	assertStatus(t, resp, http.StatusCreated)
+}
+
+func mustSeedProduct(t *testing.T, repo *memoryProductRepository, product domainproduct.Product) {
+	t.Helper()
+
+	if err := repo.Create(context.Background(), &product); err != nil {
+		t.Fatalf("seed product: %v", err)
+	}
 }
 
 func fakeDistance(sourceName, candidateName string) float64 {
@@ -470,6 +645,15 @@ func fakeDistance(sourceName, candidateName string) float64 {
 	return 1 - similarity
 }
 
+func makeTestEmbedding() []float32 {
+	embedding := make([]float32, domainproduct.EmbeddingDimensions)
+	for index := range embedding {
+		embedding[index] = 0.001
+	}
+
+	return embedding
+}
+
 func max(a, b int) int {
 	if a > b {
 		return a
@@ -482,18 +666,40 @@ func performRequest(t *testing.T, handler http.Handler, method, path, body strin
 	return performRequestWithJSONOption(t, handler, method, path, body, body != "")
 }
 
+func performAuthenticatedRequest(t *testing.T, handler http.Handler, method, path, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	return performRequestWithJSONAndAuthOption(t, handler, method, path, body, body != "", true)
+}
+
 func performRequestWithJSONOption(t *testing.T, handler http.Handler, method, path, body string, setJSON bool) *httptest.ResponseRecorder {
 	t.Helper()
+	return performRequestWithJSONAndAuthOption(t, handler, method, path, body, setJSON, false)
+}
 
+func performRequestWithJSONAndAuthOption(t *testing.T, handler http.Handler, method, path, body string, setJSON bool, setAuth bool) *httptest.ResponseRecorder {
+	t.Helper()
 	request := httptest.NewRequest(method, path, bytes.NewBufferString(body))
 	if setJSON {
 		request.Header.Set("Content-Type", "application/json")
+	}
+	if setAuth {
+		request.Header.Set("Authorization", "Bearer valid-token")
 	}
 
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
 
 	return response
+}
+
+func feedbackKey(companyID, branchID, userID, sourceProductID, suggestedProductID int64) string {
+	return strings.Join([]string{
+		strconv.FormatInt(companyID, 10),
+		strconv.FormatInt(branchID, 10),
+		strconv.FormatInt(userID, 10),
+		strconv.FormatInt(sourceProductID, 10),
+		strconv.FormatInt(suggestedProductID, 10),
+	}, ":")
 }
 
 func assertStatus(t *testing.T, response *httptest.ResponseRecorder, want int) {

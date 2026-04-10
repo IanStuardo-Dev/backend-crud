@@ -27,3 +27,9 @@ type updateProductRequest struct {
 	Stock       int       `json:"stock"`
 	Embedding   []float32 `json:"embedding,omitempty"`
 }
+
+type neighborFeedbackRequest struct {
+	BranchID int64  `json:"branch_id"`
+	Action   string `json:"action"`
+	Note     string `json:"note"`
+}
