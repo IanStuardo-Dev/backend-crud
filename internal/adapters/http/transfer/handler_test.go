@@ -95,6 +95,41 @@ func (r *memoryTransferRepository) GetByID(_ context.Context, id int64) (*domain
 	return &clone, nil
 }
 
+func (r *memoryTransferRepository) BranchExists(context.Context, int64, int64) (bool, error) {
+	return true, nil
+}
+
+func (r *memoryTransferRepository) RequesterCanAct(context.Context, int64, int64) (bool, error) {
+	return true, nil
+}
+
+func (r *memoryTransferRepository) SupervisorEligible(context.Context, int64, int64) (bool, error) {
+	return true, nil
+}
+
+func (r *memoryTransferRepository) LoadForTransfer(_ context.Context, companyID, branchID int64, items []domaintransfer.Item, lock bool) (map[int64]transferapp.StockSnapshot, error) {
+	result := make(map[int64]transferapp.StockSnapshot, len(items))
+	for _, item := range items {
+		result[item.ProductID] = transferapp.StockSnapshot{
+			ProductID:      item.ProductID,
+			ProductSKU:     "SKU-010",
+			ProductName:    "Mechanical Keyboard",
+			StockOnHand:    10,
+			ReservedStock:  0,
+			AvailableStock: 10,
+		}
+	}
+	return result, nil
+}
+
+func (r *memoryTransferRepository) PutStockOnHand(context.Context, int64, int64, int64, int) error {
+	return nil
+}
+
+func (r *memoryTransferRepository) CreateTransferMovement(context.Context, transferapp.MovementInput) error {
+	return nil
+}
+
 func TestTransferWorkflowEndpoints(t *testing.T) {
 	repo := newMemoryTransferRepository()
 	handler := transferhttp.NewHandler(transferapp.NewUseCase(repo))
@@ -291,6 +326,24 @@ func (r failingRepository) ListByBranch(context.Context, int64) ([]domaintransfe
 }
 func (r failingRepository) GetByID(context.Context, int64) (*domaintransfer.Transfer, error) {
 	return nil, r.err
+}
+func (r failingRepository) BranchExists(context.Context, int64, int64) (bool, error) {
+	return false, r.err
+}
+func (r failingRepository) RequesterCanAct(context.Context, int64, int64) (bool, error) {
+	return false, r.err
+}
+func (r failingRepository) SupervisorEligible(context.Context, int64, int64) (bool, error) {
+	return false, r.err
+}
+func (r failingRepository) LoadForTransfer(context.Context, int64, int64, []domaintransfer.Item, bool) (map[int64]transferapp.StockSnapshot, error) {
+	return nil, r.err
+}
+func (r failingRepository) PutStockOnHand(context.Context, int64, int64, int64, int) error {
+	return r.err
+}
+func (r failingRepository) CreateTransferMovement(context.Context, transferapp.MovementInput) error {
+	return r.err
 }
 
 func TestTransferHandlerMapsUnexpectedErrorsToInternalServerError(t *testing.T) {

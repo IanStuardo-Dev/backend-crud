@@ -10,13 +10,19 @@ import (
 )
 
 type stubRepository struct {
-	createFn   func(context.Context, *domaintransfer.Transfer) error
-	approveFn  func(context.Context, *domaintransfer.Transfer) error
-	dispatchFn func(context.Context, *domaintransfer.Transfer) error
-	receiveFn  func(context.Context, *domaintransfer.Transfer) error
-	cancelFn   func(context.Context, *domaintransfer.Transfer) error
-	listFn     func(context.Context) ([]domaintransfer.Transfer, error)
-	getByIDFn  func(context.Context, int64) (*domaintransfer.Transfer, error)
+	createFn             func(context.Context, *domaintransfer.Transfer) error
+	approveFn            func(context.Context, *domaintransfer.Transfer) error
+	dispatchFn           func(context.Context, *domaintransfer.Transfer) error
+	receiveFn            func(context.Context, *domaintransfer.Transfer) error
+	cancelFn             func(context.Context, *domaintransfer.Transfer) error
+	listFn               func(context.Context) ([]domaintransfer.Transfer, error)
+	getByIDFn            func(context.Context, int64) (*domaintransfer.Transfer, error)
+	branchExistsFn       func(context.Context, int64, int64) (bool, error)
+	requesterCanActFn    func(context.Context, int64, int64) (bool, error)
+	supervisorEligibleFn func(context.Context, int64, int64) (bool, error)
+	loadForTransferFn    func(context.Context, int64, int64, []domaintransfer.Item, bool) (map[int64]StockSnapshot, error)
+	putStockOnHandFn     func(context.Context, int64, int64, int64, int) error
+	createMovementFn     func(context.Context, MovementInput) error
 }
 
 func (s stubRepository) Create(ctx context.Context, transfer *domaintransfer.Transfer) error {
@@ -73,6 +79,59 @@ func (s stubRepository) GetByID(ctx context.Context, id int64) (*domaintransfer.
 		return s.getByIDFn(ctx, id)
 	}
 	return nil, nil
+}
+
+func (s stubRepository) BranchExists(ctx context.Context, companyID, branchID int64) (bool, error) {
+	if s.branchExistsFn != nil {
+		return s.branchExistsFn(ctx, companyID, branchID)
+	}
+	return true, nil
+}
+
+func (s stubRepository) RequesterCanAct(ctx context.Context, companyID, userID int64) (bool, error) {
+	if s.requesterCanActFn != nil {
+		return s.requesterCanActFn(ctx, companyID, userID)
+	}
+	return true, nil
+}
+
+func (s stubRepository) SupervisorEligible(ctx context.Context, companyID, userID int64) (bool, error) {
+	if s.supervisorEligibleFn != nil {
+		return s.supervisorEligibleFn(ctx, companyID, userID)
+	}
+	return true, nil
+}
+
+func (s stubRepository) LoadForTransfer(ctx context.Context, companyID, branchID int64, items []domaintransfer.Item, lock bool) (map[int64]StockSnapshot, error) {
+	if s.loadForTransferFn != nil {
+		return s.loadForTransferFn(ctx, companyID, branchID, items, lock)
+	}
+	result := make(map[int64]StockSnapshot, len(items))
+	for _, item := range items {
+		result[item.ProductID] = StockSnapshot{
+			ProductID:      item.ProductID,
+			ProductSKU:     "SKU-TEST",
+			ProductName:    "Product",
+			StockOnHand:    10,
+			ReservedStock:  0,
+			AvailableStock: 10,
+		}
+	}
+	return result, nil
+}
+
+func (s stubRepository) PutStockOnHand(ctx context.Context, companyID, branchID, productID int64, stockOnHand int) error {
+	if s.putStockOnHandFn != nil {
+		return s.putStockOnHandFn(ctx, companyID, branchID, productID, stockOnHand)
+	}
+	return nil
+}
+
+func (s stubRepository) CreateTransferMovement(ctx context.Context, input MovementInput) error {
+	if s.createMovementFn != nil {
+		return s.createMovementFn(ctx, input)
+	}
+	return nil
 }
 
 func TestUseCaseCreateRequiresSupervisor(t *testing.T) {

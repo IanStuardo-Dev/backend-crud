@@ -18,7 +18,7 @@ func TestRepositoryCreateAssignsIDAndTimestamps(t *testing.T) {
 	db, mock := newMockDB(t)
 	defer db.Close()
 
-	repo := NewRepository(db)
+	repo := NewCatalogStore(db)
 	product := &domainproduct.Product{
 		CompanyID:  1,
 		BranchID:   1,
@@ -79,7 +79,7 @@ func TestRepositoryCreateReturnsConflictOnUniqueViolation(t *testing.T) {
 	db, mock := newMockDB(t)
 	defer db.Close()
 
-	repo := NewRepository(db)
+	repo := NewCatalogStore(db)
 	product := &domainproduct.Product{
 		CompanyID:  1,
 		BranchID:   1,
@@ -123,7 +123,7 @@ func TestRepositoryListReturnsProducts(t *testing.T) {
 	db, mock := newMockDB(t)
 	defer db.Close()
 
-	repo := NewRepository(db)
+	repo := NewCatalogStore(db)
 	now := time.Now().UTC()
 
 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT p.id, p.company_id, p.branch_id, p.sku, p.name, p.description, p.category, p.brand, p.price_cents, p.currency,
@@ -157,7 +157,7 @@ func TestRepositoryGetByIDReturnsNilWhenMissing(t *testing.T) {
 	db, mock := newMockDB(t)
 	defer db.Close()
 
-	repo := NewRepository(db)
+	repo := NewCatalogStore(db)
 
 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT p.id, p.company_id, p.branch_id, p.sku, p.name, p.description, p.category, p.brand, p.price_cents, p.currency,
 			COALESCE(SUM(bi.stock_on_hand), p.stock) AS stock,
@@ -184,7 +184,7 @@ func TestRepositoryFindNeighborsReturnsRankedNeighbors(t *testing.T) {
 	db, mock := newMockDB(t)
 	defer db.Close()
 
-	repo := NewRepository(db)
+	repo := NewSimilarityStore(db)
 
 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT
 			p.id,
@@ -232,7 +232,7 @@ func TestRepositorySaveNeighborFeedbackUpsertsFeedback(t *testing.T) {
 	db, mock := newMockDB(t)
 	defer db.Close()
 
-	repo := NewRepository(db)
+	repo := NewFeedbackStore(db)
 	now := time.Now().UTC()
 
 	mock.ExpectQuery(regexp.QuoteMeta(`INSERT INTO product_neighbor_feedback (
@@ -280,7 +280,7 @@ func TestRepositorySaveNeighborFeedbackReturnsInvalidReferenceOnForeignKeyViolat
 	db, mock := newMockDB(t)
 	defer db.Close()
 
-	repo := NewRepository(db)
+	repo := NewFeedbackStore(db)
 
 	mock.ExpectQuery(regexp.QuoteMeta(`INSERT INTO product_neighbor_feedback (
 			company_id,
@@ -321,7 +321,7 @@ func TestRepositoryUpdateReturnsNotFoundWhenMissing(t *testing.T) {
 	db, mock := newMockDB(t)
 	defer db.Close()
 
-	repo := NewRepository(db)
+	repo := NewCatalogStore(db)
 	product := &domainproduct.Product{
 		ID:         7,
 		CompanyID:  1,
@@ -354,7 +354,7 @@ func TestRepositoryDeleteReturnsNotFoundWhenNoRowsAffected(t *testing.T) {
 	db, mock := newMockDB(t)
 	defer db.Close()
 
-	repo := NewRepository(db)
+	repo := NewCatalogStore(db)
 
 	mock.ExpectExec(regexp.QuoteMeta("DELETE FROM products WHERE id=$1")).
 		WithArgs(int64(8)).

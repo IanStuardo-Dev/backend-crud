@@ -44,6 +44,14 @@ La organizacion sigue una separacion por capas:
 
 La razon de esta estructura no es cosmetica. Busca que el dominio no dependa de HTTP, SQL, JWT ni detalles externos, y que cada cambio tecnico tenga el menor impacto posible sobre la logica central.
 
+Regla operativa para esta base:
+
+- `application/product`, `application/sale` y `application/transfer` se organizan en subpackages por responsabilidad como `command`, `query`, `dto`, `ports` y `errors`
+- los adapters PostgreSQL se segmentan en stores pequenos por capacidad, no en repositories monoliticos
+- un repository es un adapter de persistencia, no un workflow engine
+- la coordinacion transaccional vive en application layer
+- `make guard-architecture` verifica que los archivos Go de estos modulos no excedan `200` lineas
+
 ### Enfoque pragmatico
 
 El proyecto privilegia decisiones utiles para un backend real:

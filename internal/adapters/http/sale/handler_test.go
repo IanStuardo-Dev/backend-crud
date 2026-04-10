@@ -68,6 +68,38 @@ func (r *memorySaleRepository) GetByID(_ context.Context, id int64) (*domainsale
 	return &saleCopy, nil
 }
 
+func (r *memorySaleRepository) BranchExists(context.Context, int64, int64) (bool, error) {
+	return true, nil
+}
+
+func (r *memorySaleRepository) UserExists(context.Context, int64) (bool, error) {
+	return true, nil
+}
+
+func (r *memorySaleRepository) LoadForSale(_ context.Context, companyID, branchID int64, items []domainsale.Item, lock bool) (map[int64]saleapp.StockSnapshot, error) {
+	products := make(map[int64]saleapp.StockSnapshot, len(items))
+	for _, item := range items {
+		products[item.ProductID] = saleapp.StockSnapshot{
+			ProductID:      item.ProductID,
+			SKU:            "SKU-001",
+			Name:           "Laptop Stand",
+			PriceCents:     5000,
+			StockOnHand:    10,
+			ReservedStock:  0,
+			AvailableStock: 10,
+		}
+	}
+	return products, nil
+}
+
+func (r *memorySaleRepository) SetStockOnHand(context.Context, int64, int64, int64, int) error {
+	return nil
+}
+
+func (r *memorySaleRepository) CreateSaleMovement(context.Context, saleapp.MovementInput) error {
+	return nil
+}
+
 func TestSaleCreateAndReadFlow(t *testing.T) {
 	repo := newMemorySaleRepository()
 	handler := salehttp.NewHandler(saleapp.NewUseCase(repo))
@@ -188,6 +220,19 @@ func (r failingRepository) Create(context.Context, *domainsale.Sale) error  { re
 func (r failingRepository) List(context.Context) ([]domainsale.Sale, error) { return nil, r.err }
 func (r failingRepository) GetByID(context.Context, int64) (*domainsale.Sale, error) {
 	return nil, r.err
+}
+func (r failingRepository) BranchExists(context.Context, int64, int64) (bool, error) {
+	return false, r.err
+}
+func (r failingRepository) UserExists(context.Context, int64) (bool, error) { return false, r.err }
+func (r failingRepository) LoadForSale(context.Context, int64, int64, []domainsale.Item, bool) (map[int64]saleapp.StockSnapshot, error) {
+	return nil, r.err
+}
+func (r failingRepository) SetStockOnHand(context.Context, int64, int64, int64, int) error {
+	return r.err
+}
+func (r failingRepository) CreateSaleMovement(context.Context, saleapp.MovementInput) error {
+	return r.err
 }
 
 type stubTokenVerifier struct{}

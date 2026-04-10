@@ -1,6 +1,6 @@
 SHELL := /usr/bin/env bash
 
-.PHONY: migrate-up migrate-down migrate-version proto test test-pretty test-install-pretty
+.PHONY: migrate-up migrate-down migrate-version proto test test-pretty test-install-pretty guard-architecture
 
 GOCACHE := $(CURDIR)/.gocache
 
@@ -31,3 +31,6 @@ test-install-pretty:
 	@GOBIN="$(CURDIR)/bin" GOCACHE="$(GOCACHE)" go install gotest.tools/gotestsum@latest
 	@echo "installed gotestsum at ./bin/gotestsum"
 	@echo "run with: PATH=\"$(CURDIR)/bin:$$PATH\" make test-pretty"
+
+guard-architecture:
+	@./scripts/check-go-file-length.sh 200

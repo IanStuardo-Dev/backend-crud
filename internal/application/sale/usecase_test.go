@@ -10,9 +10,14 @@ import (
 )
 
 type stubRepository struct {
-	createFn  func(context.Context, *domainsale.Sale) error
-	listFn    func(context.Context) ([]domainsale.Sale, error)
-	getByIDFn func(context.Context, int64) (*domainsale.Sale, error)
+	createFn             func(context.Context, *domainsale.Sale) error
+	listFn               func(context.Context) ([]domainsale.Sale, error)
+	getByIDFn            func(context.Context, int64) (*domainsale.Sale, error)
+	branchExistsFn       func(context.Context, int64, int64) (bool, error)
+	userExistsFn         func(context.Context, int64) (bool, error)
+	loadForSaleFn        func(context.Context, int64, int64, []domainsale.Item, bool) (map[int64]StockSnapshot, error)
+	setStockOnHandFn     func(context.Context, int64, int64, int64, int) error
+	createSaleMovementFn func(context.Context, MovementInput) error
 }
 
 func (s stubRepository) Create(ctx context.Context, sale *domainsale.Sale) error {
@@ -34,6 +39,54 @@ func (s stubRepository) GetByID(ctx context.Context, id int64) (*domainsale.Sale
 		return s.getByIDFn(ctx, id)
 	}
 	return nil, nil
+}
+
+func (s stubRepository) BranchExists(ctx context.Context, companyID, branchID int64) (bool, error) {
+	if s.branchExistsFn != nil {
+		return s.branchExistsFn(ctx, companyID, branchID)
+	}
+	return true, nil
+}
+
+func (s stubRepository) UserExists(ctx context.Context, userID int64) (bool, error) {
+	if s.userExistsFn != nil {
+		return s.userExistsFn(ctx, userID)
+	}
+	return true, nil
+}
+
+func (s stubRepository) LoadForSale(ctx context.Context, companyID, branchID int64, items []domainsale.Item, lock bool) (map[int64]StockSnapshot, error) {
+	if s.loadForSaleFn != nil {
+		return s.loadForSaleFn(ctx, companyID, branchID, items, lock)
+	}
+
+	result := make(map[int64]StockSnapshot, len(items))
+	for _, item := range items {
+		result[item.ProductID] = StockSnapshot{
+			ProductID:      item.ProductID,
+			SKU:            "SKU-TEST",
+			Name:           "Product",
+			PriceCents:     6000,
+			StockOnHand:    10,
+			ReservedStock:  0,
+			AvailableStock: 10,
+		}
+	}
+	return result, nil
+}
+
+func (s stubRepository) SetStockOnHand(ctx context.Context, companyID, branchID, productID int64, stockOnHand int) error {
+	if s.setStockOnHandFn != nil {
+		return s.setStockOnHandFn(ctx, companyID, branchID, productID, stockOnHand)
+	}
+	return nil
+}
+
+func (s stubRepository) CreateSaleMovement(ctx context.Context, input MovementInput) error {
+	if s.createSaleMovementFn != nil {
+		return s.createSaleMovementFn(ctx, input)
+	}
+	return nil
 }
 
 func TestUseCaseCreateValidatesAndDelegates(t *testing.T) {
