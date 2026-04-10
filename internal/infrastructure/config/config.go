@@ -62,6 +62,27 @@ func GetJWTDuration() time.Duration {
 	return duration
 }
 
+func GetEmbeddingProvider() string {
+	LoadEnv()
+	return getenvDefault("EMBEDDING_PROVIDER", "local-hash")
+}
+
+func GetEmbeddingGRPCTarget() string {
+	LoadEnv()
+	return getenvDefault("EMBEDDING_GRPC_TARGET", "localhost:50051")
+}
+
+func GetEmbeddingRequestTimeout() time.Duration {
+	LoadEnv()
+
+	duration, err := time.ParseDuration(getenvDefault("EMBEDDING_REQUEST_TIMEOUT", "15s"))
+	if err != nil {
+		return 15 * time.Second
+	}
+
+	return duration
+}
+
 func getenvDefault(key, fallback string) string {
 	if value := os.Getenv(key); value != "" {
 		return value

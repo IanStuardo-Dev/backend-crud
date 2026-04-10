@@ -15,11 +15,40 @@ services:
     volumes:
       - db-data:/var/lib/postgresql/data
 
+  embedding-service:
+    build:
+      context: ./services/embedding-service
+    environment:
+      EMBEDDING_MODEL: sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
+      EMBEDDING_TARGET_DIMENSIONS: "1536"
+      EMBEDDING_DEVICE: cpu
+      PORT: "8000"
+      GRPC_PORT: "50051"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health').read()",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 30s
+    ports:
+      - "8000:8000"
+      - "50051:50051"
+    volumes:
+      - embedding-model-cache:/models
+
   api:
     build:
       context: .
     depends_on:
       db:
+        condition: service_healthy
+      embedding-service:
         condition: service_healthy
     environment:
       DB_HOST: db
@@ -31,8 +60,12 @@ services:
       JWT_SECRET: dev-secret-change-me
       JWT_ISSUER: crud-api
       JWT_TTL: 24h
+      EMBEDDING_PROVIDER: local-semantic-service
+      EMBEDDING_GRPC_TARGET: embedding-service:50051
+      EMBEDDING_REQUEST_TIMEOUT: 45s
     ports:
       - "8080:8080"
 
 volumes:
   db-data:
+  embedding-model-cache:
